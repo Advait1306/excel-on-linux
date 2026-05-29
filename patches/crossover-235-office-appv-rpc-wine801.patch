@@ -1,0 +1,136 @@
+From: local Office-on-Linux investigation
+Subject: wine-8.0.1: add CrossOver Office Click-to-Run RPC read path
+
+This is the narrow CrossOver 23.5 / Wine 8.0.1 patch slice that appears most
+relevant to Office Click-to-Run/AppV RPC failures.
+
+CrossOver labels it `CXHACK 14391`: Office ClickToRun hooks NtReadFile, and
+some hooked code can re-enter RPC. rpcrt4 named-pipe RPC reads are routed
+through a separate ntdll syscall/export, `__wine_rpc_NtReadFile`, avoiding the
+normal NtReadFile export that Office hooks.
+
+This patch is intentionally based on Wine 8.0.1 source shape. Newer Proton/Wine
+trees will need porting because syscall registration and wow64 plumbing moved.
+
+--- a/dlls/rpcrt4/rpc_transport.c
++++ b/dlls/rpcrt4/rpc_transport.c
+@@ -372,6 +372,19 @@ static RPC_STATUS rpcrt4_conn_np_handoff(RpcConnection *old_conn, RpcConnection
+   return status;
+ }
+ 
++/*
++ * CXHACK 14391:
++ * ClickToRun hooks NtReadFile and many other APIs. Some of hooked functions
++ * do RPC calls. When we call NtReadFile in such RPC call, it locks a critical
++ * section inside its NtReadFile hook, which causes dead locks.
++ * It most likely works on Windows because RPC calls use LPC ports, so they
++ * don't call NtReadFile.
++ */
++NTSTATUS WINAPI __wine_rpc_NtReadFile(HANDLE hFile, HANDLE hEvent,
++                           PIO_APC_ROUTINE apc, void* apc_user,
++                           PIO_STATUS_BLOCK io_status, void* buffer, ULONG length,
++                                PLARGE_INTEGER offset, PULONG key);
++
+ static int rpcrt4_conn_np_read(RpcConnection *conn, void *buffer, unsigned int count)
+ {
+     RpcConnection_np *connection = (RpcConnection_np *) conn;
+@@ -385,7 +398,7 @@ static int rpcrt4_conn_np_read(RpcConnection *conn, void *buffer, unsigned int c
+     if (connection->read_closed)
+         status = STATUS_CANCELLED;
+     else
+-        status = NtReadFile(connection->pipe, event, NULL, NULL, &connection->io_status, buffer, count, NULL, NULL);
++        status = __wine_rpc_NtReadFile(connection->pipe, event, NULL, NULL, &connection->io_status, buffer, count, NULL, NULL);
+     if (status == STATUS_PENDING)
+     {
+         /* check read_closed again before waiting to avoid a race */
+--- a/dlls/ntdll/unix/file.c
++++ b/dlls/ntdll/unix/file.c
+@@ -5325,7 +5325,15 @@ static unsigned int set_pending_write( HANDLE device )
+     return status;
+ }
+ 
++/* CW HACK 14391 */
++NTSTATUS WINAPI __wine_rpc_NtReadFile( HANDLE handle, HANDLE event, PIO_APC_ROUTINE apc, void *apc_user,
++                                IO_STATUS_BLOCK *io, void *buffer, ULONG length,
++                                LARGE_INTEGER *offset, ULONG *key )
++{
++    return NtReadFile( handle, event, apc, apc_user, io, buffer, length, offset, key );
++}
++
+ 
+ /******************************************************************************
+  *              NtReadFile   (NTDLL.@)
+  */
+--- a/dlls/ntdll/ntdll.spec
++++ b/dlls/ntdll/ntdll.spec
+@@ -1712,3 +1712,6 @@
+ # Filesystem
+ @ stdcall -syscall wine_nt_to_unix_file_name(ptr ptr ptr long)
+ @ stdcall -syscall wine_unix_to_nt_file_name(str ptr ptr)
++
++# CW HACK 14391
++@ stdcall -syscall __wine_rpc_NtReadFile(long long ptr ptr ptr ptr long ptr ptr)
+--- a/dlls/ntdll/unix/loader.c
++++ b/dlls/ntdll/unix/loader.c
+@@ -119,5 +119,7 @@ static void *p__wine_syscall_dispatcher;
+ static void **p__wine_unix_call_dispatcher;
+ 
++extern typeof(NtReadFile) __wine_rpc_NtReadFile;
++
+ static void * const syscalls[] =
+ {
+     NtAcceptConnectPort,
+@@ -356,6 +358,7 @@ static void * const syscalls[] =
+     NtWriteVirtualMemory,
+     NtYieldExecution,
+     __wine_dbg_write,
++    __wine_rpc_NtReadFile,
+     __wine_unix_spawnvp,
+     wine_nt_to_unix_file_name,
+     wine_server_call,
+--- a/dlls/wow64/file.c
++++ b/dlls/wow64/file.c
+@@ -900,6 +900,33 @@ NTSTATUS WINAPI wow64_NtWriteFileGather( UINT *args )
+     put_iosb( io32, &io );
+     return status;
+ }
++
++
++/* CW HACK 14391 */
++/**********************************************************************
++ *           wow64___wine_rpc_NtReadFile
++ */
++extern typeof(NtReadFile) __wine_rpc_NtReadFile;
++NTSTATUS WINAPI wow64___wine_rpc_NtReadFile( UINT *args )
++{
++    HANDLE handle = get_handle( &args );
++    HANDLE event = get_handle( &args );
++    ULONG apc = get_ulong( &args );
++    ULONG apc_param = get_ulong( &args );
++    IO_STATUS_BLOCK32 *io32 = get_ptr( &args );
++    void *buffer = get_ptr( &args );
++    ULONG len = get_ulong( &args );
++    LARGE_INTEGER *offset = get_ptr( &args );
++    ULONG *key = get_ptr( &args );
++
++    IO_STATUS_BLOCK io;
++    NTSTATUS status;
++
++    status = __wine_rpc_NtReadFile( handle, event, apc_32to64( apc ), apc_param_32to64( apc, apc_param ),
++                             iosb_32to64( &io, io32 ), buffer, len, offset, key );
++    put_iosb( io32, &io );
++    return status;
++}
+ 
+ 
+ /**********************************************************************
+--- a/dlls/wow64/syscall.h
++++ b/dlls/wow64/syscall.h
+@@ -255,6 +255,7 @@
+     SYSCALL_ENTRY( NtWriteVirtualMemory ) \
+     SYSCALL_ENTRY( NtYieldExecution ) \
+     SYSCALL_ENTRY( __wine_dbg_write ) \
++    SYSCALL_ENTRY( __wine_rpc_NtReadFile ) \
+     SYSCALL_ENTRY( __wine_unix_spawnvp ) \
+     SYSCALL_ENTRY( wine_nt_to_unix_file_name ) \
+     SYSCALL_ENTRY( wine_server_call ) \

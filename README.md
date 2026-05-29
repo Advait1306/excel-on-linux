@@ -78,6 +78,8 @@ That expects these local paths to exist:
   prefix.
 - `diffs/`: candidate CrossOver-vs-upstream Wine 8.0.1 diffs related to Office
   Click-to-Run/App-V behavior.
+- `patches/`: narrowed patch artifacts extracted from those diffs for porting
+  toward Proton.
 - `docs/`: build and input notes.
 - `public/`: relevant proof screenshots.
 
@@ -88,5 +90,6 @@ CrossOver packages, CrossOver installations, copied Office prefixes, or compiled
 Wine build outputs. Those are either proprietary, too large, machine-specific,
 or generated from source.
 
-See `docs/build-wine.md` and `docs/office-inputs.md` for the exact local inputs
-and hashes used in this run.
+See `docs/build-wine.md`, `docs/office-inputs.md`, and
+`docs/proton-porting-notes.md` for the exact local inputs, hashes, and current
+Proton patch target.
