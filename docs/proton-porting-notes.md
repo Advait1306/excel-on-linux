@@ -64,9 +64,40 @@ patch --dry-run -d /home/mars-user/office-open-repro/upstream/wine-8.0.1 -p1 \
 
 passes against upstream Wine 8.0.1, with small line offsets only.
 
+`patches/ge-proton10-34-office-appv-rpc-port.patch` is the same idea ported to
+the exact GE-Proton10-34 `wine` submodule commit:
+
+```text
+ValveSoftware/wine@1729f00e17e879f98f9df1f2bca86bc5d21a65df
+```
+
+Porting note: newer Wine generates the ntdll syscall tables from
+`ntdll.spec`, so this patch does not carry over the old Wine 8.0.1 manual
+edits to `dlls/ntdll/unix/loader.c` or generated `dlls/wow64/syscall.h`.
+Instead it changes:
+
+- `dlls/rpcrt4/rpc_transport.c`
+- `dlls/ntdll/unix/file.c`
+- `dlls/ntdll/ntdll.spec`
+- `dlls/wow64/file.c`
+
+Local sparse checkout used for the port:
+
+```text
+/home/mars-user/office-open-repro/valve-wine-ge10-src
+```
+
+Validation run:
+
+```text
+git -C /home/mars-user/office-open-repro/valve-wine-ge10-src diff --check
+git -C /home/mars-user/office-open-repro/valve-wine-ge10-src apply --check --reverse \
+  /home/mars-user/excel-on-linux/patches/ge-proton10-34-office-appv-rpc-port.patch
+```
+
 ## Next Proton step
 
-Port `CXHACK 14391` to `ValveSoftware/wine@1729f00e17e879f98f9df1f2bca86bc5d21a65df`,
-then build a Proton-compatible Wine runtime and rerun the existing GE-Proton10
-WOW64 Office install. The expected test is that the ODT pass moves beyond the
-current AppV/C2R RPC `0x6d3` failure.
+Build a Proton-compatible Wine runtime from the patched
+`ValveSoftware/wine@1729f00e17e879f98f9df1f2bca86bc5d21a65df` source, then
+rerun the existing GE-Proton10 WOW64 Office install. The expected test is that
+the ODT pass moves beyond the current AppV/C2R RPC `0x6d3` failure.
