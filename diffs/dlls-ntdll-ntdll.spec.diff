@@ -1,0 +1,9 @@
+--- /home/mars-user/office-open-repro/upstream/wine-8.0.1/dlls/ntdll/ntdll.spec	2023-04-20 11:34:03.000000000 +0000
++++ /home/mars-user/office-open-repro/source-extract/sources/wine/dlls/ntdll/ntdll.spec	2023-09-25 18:01:44.000000000 +0000
+@@ -1712,3 +1712,6 @@
+ # Filesystem
+ @ stdcall -syscall wine_nt_to_unix_file_name(ptr ptr ptr long)
+ @ stdcall -syscall wine_unix_to_nt_file_name(str ptr ptr)
++
++# CW HACK 14391
++@ stdcall -syscall __wine_rpc_NtReadFile(long long ptr ptr ptr ptr long ptr ptr)

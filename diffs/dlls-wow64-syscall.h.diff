@@ -1,0 +1,10 @@
+--- /home/mars-user/office-open-repro/upstream/wine-8.0.1/dlls/wow64/syscall.h	2023-04-20 11:34:03.000000000 +0000
++++ /home/mars-user/office-open-repro/source-extract/sources/wine/dlls/wow64/syscall.h	2023-09-25 18:01:45.000000000 +0000
+@@ -255,6 +255,7 @@
+     SYSCALL_ENTRY( NtWriteVirtualMemory ) \
+     SYSCALL_ENTRY( NtYieldExecution ) \
+     SYSCALL_ENTRY( __wine_dbg_write ) \
++    SYSCALL_ENTRY( __wine_rpc_NtReadFile ) \
+     SYSCALL_ENTRY( __wine_unix_spawnvp ) \
+     SYSCALL_ENTRY( wine_nt_to_unix_file_name ) \
+     SYSCALL_ENTRY( wine_server_call ) \

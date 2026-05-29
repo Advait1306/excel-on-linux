@@ -1,0 +1,31 @@
+--- /home/mars-user/office-open-repro/upstream/wine-8.0.1/dlls/rpcrt4/rpc_transport.c	2023-04-20 11:34:03.000000000 +0000
++++ /home/mars-user/office-open-repro/source-extract/sources/wine/dlls/rpcrt4/rpc_transport.c	2023-09-25 18:01:44.000000000 +0000
+@@ -372,6 +372,19 @@
+   return status;
+ }
+ 
++/*
++ * CXHACK 14391:
++ * ClickToRun hooks NtReadFile and many other APIs. Some of hooked functions
++ * do RPC calls. When we call NtReadFile in such RPC call, it locks a critical
++ * section inside its NtReadFile hook, which causes dead locks.
++ * It most likely works on Windows because RPC calls use LPC ports, so they
++ * don't call NtReadFile.
++ */
++NTSTATUS WINAPI __wine_rpc_NtReadFile(HANDLE hFile, HANDLE hEvent,
++                           PIO_APC_ROUTINE apc, void* apc_user,
++                           PIO_STATUS_BLOCK io_status, void* buffer, ULONG length,
++                                PLARGE_INTEGER offset, PULONG key);
++
+ static int rpcrt4_conn_np_read(RpcConnection *conn, void *buffer, unsigned int count)
+ {
+     RpcConnection_np *connection = (RpcConnection_np *) conn;
+@@ -385,7 +398,7 @@
+     if (connection->read_closed)
+         status = STATUS_CANCELLED;
+     else
+-        status = NtReadFile(connection->pipe, event, NULL, NULL, &connection->io_status, buffer, count, NULL, NULL);
++        status = __wine_rpc_NtReadFile(connection->pipe, event, NULL, NULL, &connection->io_status, buffer, count, NULL, NULL);
+     if (status == STATUS_PENDING)
+     {
+         /* check read_closed again before waiting to avoid a race */

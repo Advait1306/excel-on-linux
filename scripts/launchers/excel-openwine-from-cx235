@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export WINEPREFIX=/home/mars-user/.local/share/office-open-repro/prefix-from-cx235
+export WINEARCH=win32
+unset CX_ROOT CX_BOTTLE CX_BOTTLE_PATH CX_MANAGED_BOTTLE_PATH WINEDLLPATH
+export PATH="/home/mars-user/office-open-repro/wine-cx235-install/bin:$PATH"
+export LD_LIBRARY_PATH="/home/mars-user/office-open-repro/wine-cx235-install/lib:/home/mars-user/office-open-repro/wine-cx235-install/lib/wine${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/1000}"
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+export DISPLAY="${DISPLAY:-:0}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:abstract=/tmp/dbus-nWicLH0yvh,guid=ee7e2d625dd43f5959e1d8a06a197949}"
+
+exec wine start "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Excel.lnk" "$@"

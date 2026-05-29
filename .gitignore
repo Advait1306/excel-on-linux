@@ -1,0 +1,25 @@
+# Generated build outputs
+build/
+wine-cx235-install/
+logs/
+
+# Proprietary or large local artifacts
+*.exe
+*.deb
+*.cab
+*.msi
+*.tar.gz
+*.tar.xz
+office-cache*/
+*.iso
+
+# Wine/Office prefixes and bottles
+.cxoffice*/
+prefix*/
+compatdata/
+pfx/
+drive_c/
+
+# Local editor/system files
+.DS_Store
+*~
