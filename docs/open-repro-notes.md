@@ -167,9 +167,26 @@ The clean prefix is a true `win32` prefix. Current Proton results:
 - `Proton-6.1-GE-2/dist/bin/wine` page-faults and produces no visible Excel
   window.
 
+GE-Proton10 WOW64 fresh-install test:
+
+- Fresh compatdata:
+  `/home/mars-user/.local/share/office-proton/compatdata/office-ge10-odt2002-wow64`
+- Setup applied: Win7 mode, CrossOver Office DLL overrides, native `msxml6`.
+- ODT streams the Office 2020 Excel-only payload successfully into
+  `Program Files (x86)`.
+- First new blocker: `SPPRedist64.msi` failed with 1603 because 64-bit
+  `OSPPCEXT.DLL` imports `WinSCard.dll`, which was absent from the Proton
+  prefix/runtime.
+- `proton-stubs/winscard_stub.c` builds a minimal 64-bit `WinSCard.dll` probe.
+  Copying it into `C:\windows\system32` and setting `winscard=native,builtin`
+  makes manual `SPPRedist64.msi` complete with exit code 0.
+- After that, ODT gets past SPP and returns to the AppV/C2R RPC failure:
+  `AppVISVAPIError ... swrpcserver.cpp : 248 ... 0x6d3`, shown as
+  `30175-4 (1747)`.
+
 So the working path is still the local CodeWeavers-source Wine 8.0.1 build, not
-a Proton launcher. Proton compatibility is now narrowed to a runtime/prefix
-architecture problem plus older-Proton Office crashes.
+a Proton launcher. Proton compatibility is now narrowed to the AppV/C2R RPC
+behavior that CrossOver's Wine 8.0.1 patch set appears to cover.
 
 ## Files in this workspace
 
