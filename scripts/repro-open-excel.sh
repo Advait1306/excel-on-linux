@@ -10,6 +10,7 @@ WINE_ROOT="${WINE_ROOT:-$ROOT/wine-cx235-install}"
 WINEBIN="${WINEBIN:-$WINE_ROOT/bin/wine}"
 WINE_SERVER="${WINE_SERVER:-$WINE_ROOT/bin/wineserver}"
 LOG_DIR="${LOG_DIR:-/home/mars-user/office-open-repro/logs}"
+OVERRIDES_REG="${OVERRIDES_REG:-$ROOT/cx235-office-overrides.reg}"
 
 wine_env() {
   unset CX_ROOT CX_BOTTLE CX_BOTTLE_PATH CX_MANAGED_BOTTLE_PATH WINEDLLPATH
@@ -48,7 +49,10 @@ Usage:
   repro-open-excel.sh launch-copied-prefix
   repro-open-excel.sh launch-copied-prefix-terminal
   repro-open-excel.sh init-clean-prefix
+  repro-open-excel.sh apply-cx235-overrides
+  repro-open-excel.sh install-native-msxml6
   repro-open-excel.sh install-clean-prefix
+  repro-open-excel.sh materialize-msoxmlmf
   repro-open-excel.sh launch-clean-prefix
   repro-open-excel.sh tasklist-clean
   repro-open-excel.sh kill-clean
@@ -95,12 +99,35 @@ EOF
     run_wine "$PREFIX" winecfg -v win7
     run_wineserver "$PREFIX" -w || true
     ;;
+  apply-cx235-overrides)
+    echo "Applying Office DLL overrides: $OVERRIDES_REG"
+    run_wine "$PREFIX" regedit "$OVERRIDES_REG"
+    run_wineserver "$PREFIX" -w || true
+    ;;
+  install-native-msxml6)
+    echo "Installing native msxml6 into: $PREFIX"
+    wine_env
+    WINEPREFIX="$PREFIX" WINE="$WINEBIN" WINESERVER="$WINE_SERVER" winetricks -q msxml6
+    run_wineserver "$PREFIX" -w || true
+    ;;
   install-clean-prefix)
     ensure_log_dir
     echo "Installing Office into clean prefix: $PREFIX"
     echo "Log: $LOG_DIR/install-clean-prefix.log"
     run_wine "$PREFIX" "$OFFICE_ODT" /configure "Z:\\home\\mars-user\\office-odt\\install-office32-2002-excelonly.xml" \
       >"$LOG_DIR/install-clean-prefix.log" 2>&1
+    ;;
+  materialize-msoxmlmf)
+    source="$PREFIX/drive_c/Program Files/Microsoft Office/root/vfs/ProgramFilesCommonX86/Microsoft Shared/OFFICE16/MSOXMLMF.DLL"
+    target_dir="$PREFIX/drive_c/Program Files/Common Files/Microsoft Shared/ClickToRun"
+    target="$target_dir/msoxmlmf.dll"
+    if [[ ! -f "$source" ]]; then
+      echo "missing source: $source" >&2
+      exit 1
+    fi
+    mkdir -p "$target_dir"
+    cp -f "$source" "$target"
+    echo "Materialized $target"
     ;;
   launch-clean-prefix)
     run_wine "$PREFIX" "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"

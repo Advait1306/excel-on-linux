@@ -5,14 +5,23 @@ Goal: replace the working CrossOver 23.5 Excel path with an open Wine/Proton scr
 ## Current known-good baseline
 
 - Working app: Excel from Office Click-to-Run.
-- Working bottle: `/home/mars-user/.cxoffice235/office365-cx235-win7c`
-- Working launcher: `/home/mars-user/.local/bin/excel-crossover235`
-- Working CrossOver install: `/home/mars-user/crossover-23.5`
-- Bottle type: Windows 7, `win32`
+- Current working clean prefix:
+  `/home/mars-user/.local/share/office-open-repro/prefix-clean-overrides`
+- Current working runtime:
+  `/home/mars-user/office-open-repro/wine-cx235-install`
+- Prefix type: Windows 7, `win32`
 - CrossOver public version: `23.5.0`
 - CrossOver Wine fingerprint from `ntdll.so`: `wine-8.0.1-8785-g8b757459cdb`
 - Office installer path that succeeded:
   `/home/mars-user/office-odt/old-12624/setup.exe /configure /home/mars-user/office-odt/install-office32-2002-excelonly.xml`
+- Visual proof:
+  `/home/mars-user/office-open-repro-clean-overrides-excel-signin.png`
+
+Earlier CrossOver fallback:
+
+- Working bottle: `/home/mars-user/.cxoffice235/office365-cx235-win7c`
+- Working launcher: `/home/mars-user/.local/bin/excel-crossover235`
+- Working CrossOver install: `/home/mars-user/crossover-23.5`
 - Visual proof: `/home/mars-user/office-final-verify.png`
 
 ## Pinned Office inputs
@@ -45,9 +54,36 @@ Goal: replace the working CrossOver 23.5 Excel path with an open Wine/Proton scr
 - Extracted upstream source:
   `/home/mars-user/office-open-repro/upstream/wine-8.0.1`
 
-## Key finding so far
+## Clean local-Wine recipe
 
-The successful CrossOver bottle has a completed Click-to-Run/AppV registration:
+The current clean install succeeds with this combination:
+
+1. Build and install the CodeWeavers 23.5 Wine source to
+   `/home/mars-user/office-open-repro/wine-cx235-install`.
+2. Create a fresh `win32` Windows 7 prefix.
+3. Apply the Office DLL overrides captured from the CrossOver 23.5 recipe:
+   `scripts/overrides/cx235-office-overrides.reg`.
+4. Run archived ODT `12624-20320` against local Office cache
+   `/home/mars-user/office-cache32-2002`. On an empty prefix this first pass may
+   fail after staging Office files because `msoxmlmf.dll` is not materialized.
+5. Copy Office's VFS `MSOXMLMF.DLL` into real
+   `C:\Program Files\Common Files\Microsoft Shared\ClickToRun\msoxmlmf.dll`.
+6. Install native `msxml6` with `winetricks -q msxml6`.
+7. Rerun the same ODT configure. This pass should finish with exit code 0.
+8. Launch `C:\Program Files\Microsoft Office\Root\Office16\EXCEL.EXE`.
+
+The exact helper commands live in `scripts/repro-open-excel.sh`:
+
+- `init-clean-prefix`
+- `apply-cx235-overrides`
+- `install-native-msxml6`
+- `install-clean-prefix`
+- `materialize-msoxmlmf`
+- `launch-clean-prefix`
+
+## Key findings
+
+The successful clean prefix has a completed Click-to-Run/AppV registration:
 
 - `HKLM\Software\Microsoft\AppVISV`
 - `HKLM\Software\Microsoft\AppV\Client\Packages\...\COMIntegratedCLSIDs`
@@ -55,8 +91,18 @@ The successful CrossOver bottle has a completed Click-to-Run/AppV registration:
 - `HKLM\Software\Microsoft\Office\16.0\ClickToRunStore\Packages`
 - `HKLM\Software\Microsoft\Office\ClickToRun\AppVMachineRegistryStore`
 
-The direct Wine/Proton attempts installed Office files, but failed during or after
-Click-to-Run/AppV registration and then failed to show a workbook window.
+Earlier direct Wine/Proton attempts installed Office files, but failed during or
+after Click-to-Run/AppV registration and then failed to show a workbook window.
+
+Before native `msxml6`, the clean CodeWeavers-source Wine prefix still failed
+late in Click-to-Run/AppV:
+
+- SPP/MSI stage: `osppc.dll`/`osppcext.dll` errors and MSI 1603.
+- ClickToRun runtime stage: missing `msoxmlmf.dll`.
+- AppX manifest merge: `removeChild failed` with `0x80070057` / `30088-4`.
+
+Installing native `msxml6` was the key fix for the AppX manifest merge failure.
+Materializing `msoxmlmf.dll` handles the ClickToRun shared-DLL lookup.
 
 ## Candidate CrossOver patches for Office Click-to-Run
 
@@ -87,19 +133,22 @@ Click-to-Run/AppV/RPC failures seen in direct Wine/Proton attempts.
 
 ## Hypothesis
 
-The reproducible open path is probably:
+The reproducible open path is now:
 
 1. Use an open Wine build close to CrossOver 23.5's base (`wine-8.0.1` plus the
-   Click-to-Run/AppV patches above).
+   CodeWeavers patches above).
 2. Create a clean `win32` Windows 7 prefix.
 3. Apply CrossOver-equivalent bottle defaults and DLL overrides.
 4. Run the archived older ODT setup, not the current `OfficeSetup.exe`.
-5. Verify the AppV/ClickToRun registry is fully populated.
-6. Launch `C:\Program Files\Microsoft Office\Root\Office16\EXCEL.EXE`.
+5. Materialize `msoxmlmf.dll` from the staged Office VFS tree.
+6. Install native `msxml6`.
+7. Rerun ODT configure to completion.
+8. Verify the AppV/ClickToRun registry is fully populated.
+9. Launch `C:\Program Files\Microsoft Office\Root\Office16\EXCEL.EXE`.
 
-The hard unknown is whether CrossOver's required Office behavior is in upstreamable
-Wine patches, CrossOver private glue, or just bottle defaults. The next work is to
-replace one layer at a time.
+The remaining open-source cleanup work is to reduce the CrossOver-derived
+defaults to the smallest necessary set and move from CodeWeavers Wine source
+toward Proton or a clean upstream Wine patch stack.
 
 ## Files in this workspace
 
