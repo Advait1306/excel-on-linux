@@ -150,6 +150,27 @@ The remaining open-source cleanup work is to reduce the CrossOver-derived
 defaults to the smallest necessary set and move from CodeWeavers Wine source
 toward Proton or a clean upstream Wine patch stack.
 
+## Proton runtime status
+
+The clean prefix is a true `win32` prefix. Current Proton results:
+
+- `GE-Proton10-34/proton run` rejects the copied clean prefix because Proton's
+  launcher treats the invocation as 64-bit and reports that the 32-bit prefix
+  cannot support 64-bit applications.
+- `GE-Proton10-34/files/bin-wow64/wine` rejects `WINEARCH=win32`; the regular
+  GE-Proton10 Wine binary cannot boot the prefix and fails around
+  `kernel32.dll` / `c000035a`.
+- `Proton-5.9-GE-5-ST/proton run` fails during prefix setup because the win32
+  prefix has no `drive_c/windows/syswow64`.
+- `Proton-5.9-GE-5-ST/dist/bin/wine` launches `EXCEL.EXE` but only reaches
+  Excel's repair/crash dialog, not the usable workbook/sign-in screen.
+- `Proton-6.1-GE-2/dist/bin/wine` page-faults and produces no visible Excel
+  window.
+
+So the working path is still the local CodeWeavers-source Wine 8.0.1 build, not
+a Proton launcher. Proton compatibility is now narrowed to a runtime/prefix
+architecture problem plus older-Proton Office crashes.
+
 ## Files in this workspace
 
 - `scripts/inspect-working-crossover.sh`: captures the working baseline.
