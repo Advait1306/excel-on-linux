@@ -1,0 +1,1082 @@
+diff --git a/dlls/appxdeploymentclient/classes.idl b/dlls/appxdeploymentclient/classes.idl
+index edef0414d2..2e58f4c5a6 100644
+--- a/dlls/appxdeploymentclient/classes.idl
++++ b/dlls/appxdeploymentclient/classes.idl
+@@ -21,3 +21,27 @@
+ #pragma makedep register
+ 
+ #include "windows.management.deployment.idl"
++
++namespace Windows.Management.Deployment
++{
++    runtimeclass AddPackageOptions;
++
++    [
++        contract(Windows.Foundation.UniversalApiContract, 7.0),
++        exclusiveto(Windows.Management.Deployment.AddPackageOptions),
++        uuid(05cee018-f68f-422b-95a4-66679ec77fc0)
++    ]
++    interface IAddPackageOptions : IInspectable
++    {
++    }
++
++    [
++        contract(Windows.Foundation.UniversalApiContract, 7.0),
++        marshaling_behavior(agile),
++        threading(both)
++    ]
++    runtimeclass AddPackageOptions
++    {
++        [default] interface Windows.Management.Deployment.IAddPackageOptions;
++    }
++}
+diff --git a/dlls/appxdeploymentclient/main.c b/dlls/appxdeploymentclient/main.c
+index 7efbf96ea7..acdc9196a3 100644
+--- a/dlls/appxdeploymentclient/main.c
++++ b/dlls/appxdeploymentclient/main.c
+@@ -41,6 +41,9 @@ HRESULT WINAPI DllGetActivationFactory( HSTRING classid, IActivationFactory **fa
+     if (!wcscmp( buffer, RuntimeClass_Windows_Management_Deployment_PackageManager ))
+         IActivationFactory_QueryInterface( package_manager_factory, &IID_IActivationFactory, (void **)factory );
+ 
++    if (!wcscmp( buffer, L"Windows.Management.Deployment.AddPackageOptions" ))
++        IActivationFactory_QueryInterface( add_package_options_factory, &IID_IActivationFactory, (void **)factory );
++
+     if (*factory) return S_OK;
+     return CLASS_E_CLASSNOTAVAILABLE;
+ }
+diff --git a/dlls/appxdeploymentclient/package.c b/dlls/appxdeploymentclient/package.c
+index 50dcb0f928..360b3407b1 100644
+--- a/dlls/appxdeploymentclient/package.c
++++ b/dlls/appxdeploymentclient/package.c
+@@ -26,6 +26,15 @@ struct package_manager
+ {
+     IPackageManager IPackageManager_iface;
+     IPackageManager2 IPackageManager2_iface;
++    IInspectable IPackageManager6_iface;
++    IInspectable IPackageManager9_iface;
++    LONG ref;
++};
++
++struct empty_package_iterable
++{
++    IIterable_Package IIterable_Package_iface;
++    IIterator_Package IIterator_Package_iface;
+     LONG ref;
+ };
+ 
+@@ -34,6 +43,391 @@ static inline struct package_manager *impl_from_IPackageManager( IPackageManager
+     return CONTAINING_RECORD( iface, struct package_manager, IPackageManager_iface );
+ }
+ 
++static inline struct empty_package_iterable *impl_from_IIterable_Package( IIterable_Package *iface )
++{
++    return CONTAINING_RECORD( iface, struct empty_package_iterable, IIterable_Package_iface );
++}
++
++static inline struct empty_package_iterable *impl_from_IIterator_Package( IIterator_Package *iface )
++{
++    return CONTAINING_RECORD( iface, struct empty_package_iterable, IIterator_Package_iface );
++}
++
++static inline struct package_manager *impl_from_IPackageManager6( IInspectable *iface )
++{
++    return CONTAINING_RECORD( iface, struct package_manager, IPackageManager6_iface );
++}
++
++static inline struct package_manager *impl_from_IPackageManager9( IInspectable *iface )
++{
++    return CONTAINING_RECORD( iface, struct package_manager, IPackageManager9_iface );
++}
++
++static const GUID IID_IPackageManager6_compat =
++    {0x0847e909,0x53cd,0x4e4f,{0x83,0x2e,0x57,0xd1,0x80,0xf6,0xe4,0x47}};
++
++static const GUID IID_IPackageManager9_compat =
++    {0x1aa79035,0xcc71,0x4b2e,{0x80,0xa6,0xc7,0x04,0x1d,0x85,0x79,0xa7}};
++
++static const GUID IID_IAddPackageOptions =
++    {0x05cee018,0xf68f,0x422b,{0x95,0xa4,0x66,0x67,0x9e,0xc7,0x7f,0xc0}};
++
++struct add_package_options
++{
++    IInspectable IInspectable_iface;
++    LONG ref;
++};
++
++static inline struct add_package_options *impl_from_IInspectable( IInspectable *iface )
++{
++    return CONTAINING_RECORD( iface, struct add_package_options, IInspectable_iface );
++}
++
++static HRESULT WINAPI add_package_options_QueryInterface( IInspectable *iface, REFIID iid, void **out )
++{
++    struct add_package_options *impl = impl_from_IInspectable( iface );
++
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IAddPackageOptions ))
++    {
++        *out = &impl->IInspectable_iface;
++        IInspectable_AddRef( *out );
++        return S_OK;
++    }
++
++    *out = NULL;
++    FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
++    return E_NOINTERFACE;
++}
++
++static ULONG WINAPI add_package_options_AddRef( IInspectable *iface )
++{
++    struct add_package_options *impl = impl_from_IInspectable( iface );
++    return InterlockedIncrement( &impl->ref );
++}
++
++static ULONG WINAPI add_package_options_Release( IInspectable *iface )
++{
++    struct add_package_options *impl = impl_from_IInspectable( iface );
++    ULONG ref = InterlockedDecrement( &impl->ref );
++
++    if (!ref) free( impl );
++    return ref;
++}
++
++static HRESULT WINAPI add_package_options_GetIids( IInspectable *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI add_package_options_GetRuntimeClassName( IInspectable *iface, HSTRING *class_name )
++{
++    return WindowsCreateString( L"Windows.Management.Deployment.AddPackageOptions",
++                                ARRAY_SIZE(L"Windows.Management.Deployment.AddPackageOptions") - 1, class_name );
++}
++
++static HRESULT WINAPI add_package_options_GetTrustLevel( IInspectable *iface, TrustLevel *trust_level )
++{
++    if (!trust_level) return E_POINTER;
++    *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI add_package_options_get_pointer( IInspectable *iface, void **value )
++{
++    FIXME( "iface %p, value %p semi-stub returning NULL.\n", iface, value );
++    if (!value) return E_POINTER;
++    *value = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI add_package_options_put_pointer( IInspectable *iface, void *value )
++{
++    FIXME( "iface %p, value %p semi-stub.\n", iface, value );
++    return S_OK;
++}
++
++static HRESULT WINAPI add_package_options_get_bool( IInspectable *iface, boolean *value )
++{
++    if (!value) return E_POINTER;
++    *value = FALSE;
++    return S_OK;
++}
++
++static HRESULT WINAPI add_package_options_put_bool( IInspectable *iface, boolean value )
++{
++    return S_OK;
++}
++
++static HRESULT WINAPI add_package_options_get_int( IInspectable *iface, int *value )
++{
++    if (!value) return E_POINTER;
++    *value = 0;
++    return S_OK;
++}
++
++static HRESULT WINAPI add_package_options_put_int( IInspectable *iface, int value )
++{
++    return S_OK;
++}
++
++struct add_package_options_vtbl
++{
++    IInspectableVtbl base;
++    HRESULT (WINAPI *get_DependencyPackageUris)( IInspectable *, void ** );
++    HRESULT (WINAPI *get_TargetVolume)( IInspectable *, void ** );
++    HRESULT (WINAPI *put_TargetVolume)( IInspectable *, void * );
++    HRESULT (WINAPI *get_OptionalPackageFamilyNames)( IInspectable *, void ** );
++    HRESULT (WINAPI *get_OptionalPackageUris)( IInspectable *, void ** );
++    HRESULT (WINAPI *get_RelatedPackageUris)( IInspectable *, void ** );
++    HRESULT (WINAPI *get_ExternalLocationUri)( IInspectable *, void ** );
++    HRESULT (WINAPI *put_ExternalLocationUri)( IInspectable *, void * );
++    HRESULT (WINAPI *get_StubPackageOption)( IInspectable *, int * );
++    HRESULT (WINAPI *put_StubPackageOption)( IInspectable *, int );
++    HRESULT (WINAPI *get_DeveloperMode)( IInspectable *, boolean * );
++    HRESULT (WINAPI *put_DeveloperMode)( IInspectable *, boolean );
++    HRESULT (WINAPI *get_ForceAppShutdown)( IInspectable *, boolean * );
++    HRESULT (WINAPI *put_ForceAppShutdown)( IInspectable *, boolean );
++    HRESULT (WINAPI *get_ForceTargetAppShutdown)( IInspectable *, boolean * );
++    HRESULT (WINAPI *put_ForceTargetAppShutdown)( IInspectable *, boolean );
++    HRESULT (WINAPI *get_ForceUpdateFromAnyVersion)( IInspectable *, boolean * );
++    HRESULT (WINAPI *put_ForceUpdateFromAnyVersion)( IInspectable *, boolean );
++    HRESULT (WINAPI *get_InstallAllResources)( IInspectable *, boolean * );
++    HRESULT (WINAPI *put_InstallAllResources)( IInspectable *, boolean );
++    HRESULT (WINAPI *get_RequiredContentGroupOnly)( IInspectable *, boolean * );
++    HRESULT (WINAPI *put_RequiredContentGroupOnly)( IInspectable *, boolean );
++    HRESULT (WINAPI *get_RetainFilesOnFailure)( IInspectable *, boolean * );
++    HRESULT (WINAPI *put_RetainFilesOnFailure)( IInspectable *, boolean );
++    HRESULT (WINAPI *get_StageInPlace)( IInspectable *, boolean * );
++    HRESULT (WINAPI *put_StageInPlace)( IInspectable *, boolean );
++    HRESULT (WINAPI *get_AllowUnsigned)( IInspectable *, boolean * );
++    HRESULT (WINAPI *put_AllowUnsigned)( IInspectable *, boolean );
++    HRESULT (WINAPI *get_DeferRegistrationWhenPackagesAreInUse)( IInspectable *, boolean * );
++    HRESULT (WINAPI *put_DeferRegistrationWhenPackagesAreInUse)( IInspectable *, boolean );
++};
++
++static const struct add_package_options_vtbl add_package_options_vtbl =
++{
++    {
++        add_package_options_QueryInterface,
++        add_package_options_AddRef,
++        add_package_options_Release,
++        add_package_options_GetIids,
++        add_package_options_GetRuntimeClassName,
++        add_package_options_GetTrustLevel,
++    },
++    add_package_options_get_pointer,
++    add_package_options_get_pointer,
++    add_package_options_put_pointer,
++    add_package_options_get_pointer,
++    add_package_options_get_pointer,
++    add_package_options_get_pointer,
++    add_package_options_get_pointer,
++    add_package_options_put_pointer,
++    add_package_options_get_int,
++    add_package_options_put_int,
++    add_package_options_get_bool,
++    add_package_options_put_bool,
++    add_package_options_get_bool,
++    add_package_options_put_bool,
++    add_package_options_get_bool,
++    add_package_options_put_bool,
++    add_package_options_get_bool,
++    add_package_options_put_bool,
++    add_package_options_get_bool,
++    add_package_options_put_bool,
++    add_package_options_get_bool,
++    add_package_options_put_bool,
++    add_package_options_get_bool,
++    add_package_options_put_bool,
++    add_package_options_get_bool,
++    add_package_options_put_bool,
++    add_package_options_get_bool,
++    add_package_options_put_bool,
++    add_package_options_get_bool,
++    add_package_options_put_bool,
++};
++
++static HRESULT WINAPI empty_package_iterable_QueryInterface( IIterable_Package *iface, REFIID iid, void **out )
++{
++    struct empty_package_iterable *impl = impl_from_IIterable_Package( iface );
++
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IIterable_Package ))
++    {
++        *out = &impl->IIterable_Package_iface;
++        IIterable_Package_AddRef( *out );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_IIterator_Package ))
++    {
++        *out = &impl->IIterator_Package_iface;
++        IIterator_Package_AddRef( *out );
++        return S_OK;
++    }
++
++    *out = NULL;
++    return E_NOINTERFACE;
++}
++
++static ULONG WINAPI empty_package_iterable_AddRef( IIterable_Package *iface )
++{
++    struct empty_package_iterable *impl = impl_from_IIterable_Package( iface );
++    return InterlockedIncrement( &impl->ref );
++}
++
++static ULONG WINAPI empty_package_iterable_Release( IIterable_Package *iface )
++{
++    struct empty_package_iterable *impl = impl_from_IIterable_Package( iface );
++    ULONG ref = InterlockedDecrement( &impl->ref );
++
++    if (!ref) free( impl );
++    return ref;
++}
++
++static HRESULT WINAPI empty_package_iterable_GetIids( IIterable_Package *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI empty_package_iterable_GetRuntimeClassName( IIterable_Package *iface, HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p stub!\n", iface, class_name );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI empty_package_iterable_GetTrustLevel( IIterable_Package *iface, TrustLevel *trust_level )
++{
++    if (!trust_level) return E_POINTER;
++    *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI empty_package_iterable_First( IIterable_Package *iface, IIterator_Package **value )
++{
++    struct empty_package_iterable *impl = impl_from_IIterable_Package( iface );
++
++    TRACE( "iface %p, value %p.\n", iface, value );
++
++    if (!value) return E_POINTER;
++    *value = &impl->IIterator_Package_iface;
++    IIterator_Package_AddRef( *value );
++    return S_OK;
++}
++
++static const struct IIterable_PackageVtbl empty_package_iterable_vtbl =
++{
++    empty_package_iterable_QueryInterface,
++    empty_package_iterable_AddRef,
++    empty_package_iterable_Release,
++    empty_package_iterable_GetIids,
++    empty_package_iterable_GetRuntimeClassName,
++    empty_package_iterable_GetTrustLevel,
++    empty_package_iterable_First,
++};
++
++static HRESULT WINAPI empty_package_iterator_QueryInterface( IIterator_Package *iface, REFIID iid, void **out )
++{
++    struct empty_package_iterable *impl = impl_from_IIterator_Package( iface );
++    return IIterable_Package_QueryInterface( &impl->IIterable_Package_iface, iid, out );
++}
++
++static ULONG WINAPI empty_package_iterator_AddRef( IIterator_Package *iface )
++{
++    struct empty_package_iterable *impl = impl_from_IIterator_Package( iface );
++    return IIterable_Package_AddRef( &impl->IIterable_Package_iface );
++}
++
++static ULONG WINAPI empty_package_iterator_Release( IIterator_Package *iface )
++{
++    struct empty_package_iterable *impl = impl_from_IIterator_Package( iface );
++    return IIterable_Package_Release( &impl->IIterable_Package_iface );
++}
++
++static HRESULT WINAPI empty_package_iterator_GetIids( IIterator_Package *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI empty_package_iterator_GetRuntimeClassName( IIterator_Package *iface, HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p stub!\n", iface, class_name );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI empty_package_iterator_GetTrustLevel( IIterator_Package *iface, TrustLevel *trust_level )
++{
++    if (!trust_level) return E_POINTER;
++    *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI empty_package_iterator_get_Current( IIterator_Package *iface, IPackage **value )
++{
++    if (!value) return E_POINTER;
++    *value = NULL;
++    return E_BOUNDS;
++}
++
++static HRESULT WINAPI empty_package_iterator_get_HasCurrent( IIterator_Package *iface, boolean *value )
++{
++    if (!value) return E_POINTER;
++    *value = FALSE;
++    return S_OK;
++}
++
++static HRESULT WINAPI empty_package_iterator_MoveNext( IIterator_Package *iface, boolean *value )
++{
++    if (!value) return E_POINTER;
++    *value = FALSE;
++    return S_OK;
++}
++
++static HRESULT WINAPI empty_package_iterator_GetMany( IIterator_Package *iface, UINT32 items_size, IPackage **items, UINT32 *value )
++{
++    if (!value) return E_POINTER;
++    *value = 0;
++    if (items && items_size) memset( items, 0, items_size * sizeof(*items) );
++    return S_OK;
++}
++
++static const struct IIterator_PackageVtbl empty_package_iterator_vtbl =
++{
++    empty_package_iterator_QueryInterface,
++    empty_package_iterator_AddRef,
++    empty_package_iterator_Release,
++    empty_package_iterator_GetIids,
++    empty_package_iterator_GetRuntimeClassName,
++    empty_package_iterator_GetTrustLevel,
++    empty_package_iterator_get_Current,
++    empty_package_iterator_get_HasCurrent,
++    empty_package_iterator_MoveNext,
++    empty_package_iterator_GetMany,
++};
++
++static HRESULT create_empty_package_iterable( IIterable_Package **packages )
++{
++    struct empty_package_iterable *impl;
++
++    if (!packages) return E_POINTER;
++    if (!(impl = calloc( 1, sizeof(*impl) ))) return E_OUTOFMEMORY;
++
++    impl->IIterable_Package_iface.lpVtbl = &empty_package_iterable_vtbl;
++    impl->IIterator_Package_iface.lpVtbl = &empty_package_iterator_vtbl;
++    impl->ref = 1;
++
++    *packages = &impl->IIterable_Package_iface;
++    return S_OK;
++}
++
+ static HRESULT WINAPI package_manager_QueryInterface( IPackageManager *iface, REFIID iid, void **out )
+ {
+     struct package_manager *impl = impl_from_IPackageManager( iface );
+@@ -57,6 +451,20 @@ static HRESULT WINAPI package_manager_QueryInterface( IPackageManager *iface, RE
+         return S_OK;
+     }
+ 
++    if (IsEqualGUID( iid, &IID_IPackageManager6_compat ))
++    {
++        *out = &impl->IPackageManager6_iface;
++        IInspectable_AddRef( *out );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_IPackageManager9_compat ))
++    {
++        *out = &impl->IPackageManager9_iface;
++        IInspectable_AddRef( *out );
++        return S_OK;
++    }
++
+     FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
+     *out = NULL;
+     return E_NOINTERFACE;
+@@ -136,14 +544,14 @@ static HRESULT WINAPI package_manager_RegisterPackageAsync( IPackageManager *ifa
+ 
+ static HRESULT WINAPI package_manager_FindPackages( IPackageManager *iface, IIterable_Package **packages )
+ {
+-    FIXME( "iface %p, packages %p stub!\n", iface, packages );
+-    return E_NOTIMPL;
++    FIXME( "iface %p, packages %p semi-stub returning empty set.\n", iface, packages );
++    return create_empty_package_iterable( packages );
+ }
+ 
+ static HRESULT WINAPI package_manager_FindPackagesByUserSecurityId( IPackageManager *iface, HSTRING sid, IIterable_Package **packages )
+ {
+-    FIXME( "iface %p, sid %s, packages %p stub!\n", iface, debugstr_hstring(sid), packages );
+-    return E_NOTIMPL;
++    FIXME( "iface %p, sid %s, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(sid), packages );
++    return create_empty_package_iterable( packages );
+ }
+ 
+ static HRESULT WINAPI package_manager_FindPackagesByNamePublisher( IPackageManager *iface, HSTRING name, HSTRING publisher, IIterable_Package **packages )
+@@ -151,14 +559,14 @@ static HRESULT WINAPI package_manager_FindPackagesByNamePublisher( IPackageManag
+     FIXME( "iface %p, name %s, publisher %s, packages %p stub!\n", iface, debugstr_hstring(name), debugstr_hstring(publisher), packages );
+ 
+     if (!name || !publisher) return E_INVALIDARG;
+-    return E_NOTIMPL;
++    return create_empty_package_iterable( packages );
+ }
+ 
+ static HRESULT WINAPI package_manager_FindPackagesByUserSecurityIdNamePublisher( IPackageManager *iface, HSTRING sid,
+     HSTRING name, HSTRING publisher, IIterable_Package **packages )
+ {
+-    FIXME( "iface %p, sid %s, name %s, publisher %s, packages %p stub!\n", iface, debugstr_hstring(sid), debugstr_hstring(name), debugstr_hstring(publisher), packages );
+-    return E_NOTIMPL;
++    FIXME( "iface %p, sid %s, name %s, publisher %s, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(sid), debugstr_hstring(name), debugstr_hstring(publisher), packages );
++    return create_empty_package_iterable( packages );
+ }
+ 
+ static HRESULT WINAPI package_manager_FindUsers( IPackageManager *iface, HSTRING name, IIterable_PackageUserInformation **users )
+@@ -189,15 +597,15 @@ static HRESULT WINAPI package_manager_CleanupPackageForUserAsync( IPackageManage
+ static HRESULT WINAPI package_manager_FindPackagesByPackageFamilyName( IPackageManager *iface, HSTRING family_name,
+     IIterable_Package **packages )
+ {
+-    FIXME( "iface %p, family_name %s, packages %p stub!\n", iface, debugstr_hstring(family_name), packages );
+-    return E_NOTIMPL;
++    FIXME( "iface %p, family_name %s, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(family_name), packages );
++    return create_empty_package_iterable( packages );
+ }
+ 
+ static HRESULT WINAPI package_manager_FindPackagesByUserSecurityIdPackageFamilyName( IPackageManager *iface, HSTRING sid,
+     HSTRING family_name, IIterable_Package **packages )
+ {
+-    FIXME( "iface %p, sid %s, family_name %s, packages %p stub!\n", iface, debugstr_hstring(sid), debugstr_hstring(family_name), packages );
+-    return E_NOTIMPL;
++    FIXME( "iface %p, sid %s, family_name %s, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(sid), debugstr_hstring(family_name), packages );
++    return create_empty_package_iterable( packages );
+ }
+ 
+ static HRESULT WINAPI package_manager_FindPackageByUserSecurityIdPackageFullName( IPackageManager *iface, HSTRING sid, HSTRING name, IPackage **package )
+@@ -259,43 +667,43 @@ static HRESULT WINAPI package_manager2_RegisterPackageByFullNameAsync( IPackageM
+ 
+ static HRESULT WINAPI package_manager2_FindPackagesWithPackageTypes( IPackageManager2 *iface, PackageTypes types, IIterable_Package **packages )
+ {
+-    FIXME( "iface %p, types %d, packages %p stub!\n", iface, types, packages );
+-    return E_NOTIMPL;
++    FIXME( "iface %p, types %d, packages %p semi-stub returning empty set.\n", iface, types, packages );
++    return create_empty_package_iterable( packages );
+ }
+ 
+ static HRESULT WINAPI package_manager2_FindPackagesByUserSecurityIdWithPackageTypes( IPackageManager2 *iface, HSTRING sid,
+     PackageTypes types, IIterable_Package **packages )
+ {
+-    FIXME( "iface %p, sid %s, types %d, packages %p stub!\n", iface, debugstr_hstring(sid), types, packages );
+-    return E_NOTIMPL;
++    FIXME( "iface %p, sid %s, types %d, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(sid), types, packages );
++    return create_empty_package_iterable( packages );
+ }
+ 
+ static HRESULT WINAPI package_manager2_FindPackagesByNamePublisherWithPackageTypes( IPackageManager2 *iface, HSTRING name, HSTRING publisher,
+     PackageTypes types, IIterable_Package **packages )
+ {
+-    FIXME( "iface %p, name %s, publisher %s, types %d, packages %p stub!\n", iface, debugstr_hstring(name), debugstr_hstring(publisher), types, packages );
+-    return E_NOTIMPL;
++    FIXME( "iface %p, name %s, publisher %s, types %d, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(name), debugstr_hstring(publisher), types, packages );
++    return create_empty_package_iterable( packages );
+ }
+ 
+ static HRESULT WINAPI package_manager2_FindPackagesByUserSecurityIdNamePublisherWithPackageTypes( IPackageManager2 *iface, HSTRING sid, HSTRING name,
+     HSTRING publisher, PackageTypes types, IIterable_Package **packages )
+ {
+-    FIXME( "iface %p, sid %s, name %s, publisher %s, types %d, packages %p stub!\n", iface, debugstr_hstring(sid), debugstr_hstring(name), debugstr_hstring(publisher), types, packages );
+-    return E_NOTIMPL;
++    FIXME( "iface %p, sid %s, name %s, publisher %s, types %d, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(sid), debugstr_hstring(name), debugstr_hstring(publisher), types, packages );
++    return create_empty_package_iterable( packages );
+ }
+ 
+ static HRESULT WINAPI package_manager2_FindPackagesByPackageFamilyNameWithPackageTypes( IPackageManager2 *iface, HSTRING family_name, PackageTypes types,
+    IIterable_Package **packages )
+ {
+-    FIXME( "iface %p, family_name %s, types %d, packages %p stub!\n", iface, debugstr_hstring(family_name), types, packages );
+-    return E_NOTIMPL;
++    FIXME( "iface %p, family_name %s, types %d, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(family_name), types, packages );
++    return create_empty_package_iterable( packages );
+ }
+ 
+ static HRESULT WINAPI package_manager2_FindPackagesByUserSecurityIdPackageFamilyNameWithPackageTypes( IPackageManager2 *iface, HSTRING sid, HSTRING family_name,
+     PackageTypes types, IIterable_Package **packages )
+ {
+-    FIXME( "iface %p, sid %s, family_name %s, types %d, packages %p stub!\n", iface, debugstr_hstring(sid), debugstr_hstring(family_name), types, packages );
+-    return E_NOTIMPL;
++    FIXME( "iface %p, sid %s, family_name %s, types %d, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(sid), debugstr_hstring(family_name), types, packages );
++    return create_empty_package_iterable( packages );
+ }
+ 
+ static HRESULT WINAPI package_manager2_StageUserDataAsync( IPackageManager2 *iface, HSTRING name,
+@@ -327,6 +735,244 @@ static const struct IPackageManager2Vtbl package_manager2_vtbl =
+     package_manager2_StageUserDataAsync,
+ };
+ 
++static HRESULT WINAPI package_manager6_QueryInterface( IInspectable *iface, REFIID iid, void **out )
++{
++    struct package_manager *impl = impl_from_IPackageManager6( iface );
++    return IPackageManager_QueryInterface( &impl->IPackageManager_iface, iid, out );
++}
++
++static ULONG WINAPI package_manager6_AddRef( IInspectable *iface )
++{
++    struct package_manager *impl = impl_from_IPackageManager6( iface );
++    return IPackageManager_AddRef( &impl->IPackageManager_iface );
++}
++
++static ULONG WINAPI package_manager6_Release( IInspectable *iface )
++{
++    struct package_manager *impl = impl_from_IPackageManager6( iface );
++    return IPackageManager_Release( &impl->IPackageManager_iface );
++}
++
++static HRESULT WINAPI package_manager6_GetIids( IInspectable *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager6_GetRuntimeClassName( IInspectable *iface, HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p stub!\n", iface, class_name );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager6_GetTrustLevel( IInspectable *iface, TrustLevel *trust_level )
++{
++    FIXME( "iface %p, trust_level %p stub!\n", iface, trust_level );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager6_ProvisionPackageForAllUsersAsync( IInspectable *iface, HSTRING name, void **operation )
++{
++    FIXME( "iface %p, name %s, operation %p stub!\n", iface, debugstr_hstring(name), operation );
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager6_AddPackageByAppInstallerFileAsync( IInspectable *iface, IUriRuntimeClass *uri,
++    DWORD options, void *target, void **operation )
++{
++    FIXME( "iface %p, uri %p, options %#lx, target %p, operation %p stub!\n", iface, uri, options, target, operation );
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager6_RequestAddPackageByAppInstallerFileAsync( IInspectable *iface, IUriRuntimeClass *uri,
++    DWORD options, void *target, void **operation )
++{
++    FIXME( "iface %p, uri %p, options %#lx, target %p, operation %p stub!\n", iface, uri, options, target, operation );
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager6_AddPackageToVolumeAndRelatedSetAsync( IInspectable *iface, void *volume,
++    IUriRuntimeClass *uri, IIterable_Uri *dependencies, DeploymentOptions options, void *optional_package_family_names,
++    void *external_package_uris, void *related_package_uris, void **operation )
++{
++    FIXME( "iface %p, volume %p, uri %p, dependencies %p, options %d, optional %p, external %p, related %p, operation %p stub!\n",
++           iface, volume, uri, dependencies, options, optional_package_family_names, external_package_uris,
++           related_package_uris, operation );
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager6_StagePackageToVolumeAndRelatedSetAsync( IInspectable *iface, void *volume,
++    IUriRuntimeClass *uri, IIterable_Uri *dependencies, DeploymentOptions options, void *optional_package_family_names,
++    void *external_package_uris, void *related_package_uris, void **operation )
++{
++    FIXME( "iface %p, volume %p, uri %p, dependencies %p, options %d, optional %p, external %p, related %p, operation %p stub!\n",
++           iface, volume, uri, dependencies, options, optional_package_family_names, external_package_uris,
++           related_package_uris, operation );
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager6_RequestAddPackageAsync( IInspectable *iface, IUriRuntimeClass *uri,
++    IIterable_Uri *dependencies, DeploymentOptions options, void *target, void *optional_package_family_names,
++    void *related_package_uris, void **operation )
++{
++    FIXME( "iface %p, uri %p, dependencies %p, options %d, target %p, optional %p, related %p, operation %p stub!\n",
++           iface, uri, dependencies, options, target, optional_package_family_names, related_package_uris, operation );
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++struct IPackageManager6_compat_vtbl
++{
++    IInspectableVtbl base;
++    HRESULT (WINAPI *ProvisionPackageForAllUsersAsync)( IInspectable *, HSTRING, void ** );
++    HRESULT (WINAPI *AddPackageByAppInstallerFileAsync)( IInspectable *, IUriRuntimeClass *, DWORD, void *, void ** );
++    HRESULT (WINAPI *RequestAddPackageByAppInstallerFileAsync)( IInspectable *, IUriRuntimeClass *, DWORD, void *, void ** );
++    HRESULT (WINAPI *AddPackageToVolumeAndRelatedSetAsync)( IInspectable *, void *, IUriRuntimeClass *, IIterable_Uri *,
++                                                           DeploymentOptions, void *, void *, void *, void ** );
++    HRESULT (WINAPI *StagePackageToVolumeAndRelatedSetAsync)( IInspectable *, void *, IUriRuntimeClass *, IIterable_Uri *,
++                                                             DeploymentOptions, void *, void *, void *, void ** );
++    HRESULT (WINAPI *RequestAddPackageAsync)( IInspectable *, IUriRuntimeClass *, IIterable_Uri *, DeploymentOptions,
++                                             void *, void *, void *, void ** );
++};
++
++static const struct IPackageManager6_compat_vtbl package_manager6_vtbl =
++{
++    {
++        package_manager6_QueryInterface,
++        package_manager6_AddRef,
++        package_manager6_Release,
++        package_manager6_GetIids,
++        package_manager6_GetRuntimeClassName,
++        package_manager6_GetTrustLevel,
++    },
++    package_manager6_ProvisionPackageForAllUsersAsync,
++    package_manager6_AddPackageByAppInstallerFileAsync,
++    package_manager6_RequestAddPackageByAppInstallerFileAsync,
++    package_manager6_AddPackageToVolumeAndRelatedSetAsync,
++    package_manager6_StagePackageToVolumeAndRelatedSetAsync,
++    package_manager6_RequestAddPackageAsync,
++};
++
++static HRESULT WINAPI package_manager9_QueryInterface( IInspectable *iface, REFIID iid, void **out )
++{
++    struct package_manager *impl = impl_from_IPackageManager9( iface );
++    return IPackageManager_QueryInterface( &impl->IPackageManager_iface, iid, out );
++}
++
++static ULONG WINAPI package_manager9_AddRef( IInspectable *iface )
++{
++    struct package_manager *impl = impl_from_IPackageManager9( iface );
++    return IPackageManager_AddRef( &impl->IPackageManager_iface );
++}
++
++static ULONG WINAPI package_manager9_Release( IInspectable *iface )
++{
++    struct package_manager *impl = impl_from_IPackageManager9( iface );
++    return IPackageManager_Release( &impl->IPackageManager_iface );
++}
++
++static HRESULT WINAPI package_manager9_GetIids( IInspectable *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager9_GetRuntimeClassName( IInspectable *iface, HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p stub!\n", iface, class_name );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager9_GetTrustLevel( IInspectable *iface, TrustLevel *trust_level )
++{
++    FIXME( "iface %p, trust_level %p stub!\n", iface, trust_level );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager9_FindProvisionedPackages( IInspectable *iface, IIterable_Package **packages )
++{
++    FIXME( "iface %p, packages %p semi-stub returning empty set.\n", iface, packages );
++    return create_empty_package_iterable( packages );
++}
++
++static HRESULT WINAPI package_manager9_AddPackageByUriAsync( IInspectable *iface, IUriRuntimeClass *uri, IInspectable *options, void **operation )
++{
++    FIXME( "iface %p, uri %p, options %p, operation %p stub!\n", iface, uri, options, operation );
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager9_StagePackageByUriAsync( IInspectable *iface, IUriRuntimeClass *uri, IInspectable *options, void **operation )
++{
++    FIXME( "iface %p, uri %p, options %p, operation %p stub!\n", iface, uri, options, operation );
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager9_RegisterPackageByUriAsync( IInspectable *iface, IUriRuntimeClass *uri, IInspectable *options, void **operation )
++{
++    FIXME( "iface %p, uri %p, options %p, operation %p stub!\n", iface, uri, options, operation );
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager9_RegisterPackagesByFullNameAsync( IInspectable *iface, IIterable_HSTRING *names, IInspectable *options, void **operation )
++{
++    FIXME( "iface %p, names %p, options %p, operation %p stub!\n", iface, names, options, operation );
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI package_manager9_SetPackageStubPreference( IInspectable *iface, HSTRING name, int preference )
++{
++    FIXME( "iface %p, name %s, preference %d stub!\n", iface, debugstr_hstring(name), preference );
++    return S_OK;
++}
++
++static HRESULT WINAPI package_manager9_GetPackageStubPreference( IInspectable *iface, HSTRING name, int *preference )
++{
++    FIXME( "iface %p, name %s, preference %p stub!\n", iface, debugstr_hstring(name), preference );
++    if (!preference) return E_POINTER;
++    *preference = 0;
++    return S_OK;
++}
++
++struct IPackageManager9_compat_vtbl
++{
++    IInspectableVtbl base;
++    HRESULT (WINAPI *FindProvisionedPackages)( IInspectable *, IIterable_Package ** );
++    HRESULT (WINAPI *AddPackageByUriAsync)( IInspectable *, IUriRuntimeClass *, IInspectable *, void ** );
++    HRESULT (WINAPI *StagePackageByUriAsync)( IInspectable *, IUriRuntimeClass *, IInspectable *, void ** );
++    HRESULT (WINAPI *RegisterPackageByUriAsync)( IInspectable *, IUriRuntimeClass *, IInspectable *, void ** );
++    HRESULT (WINAPI *RegisterPackagesByFullNameAsync)( IInspectable *, IIterable_HSTRING *, IInspectable *, void ** );
++    HRESULT (WINAPI *SetPackageStubPreference)( IInspectable *, HSTRING, int );
++    HRESULT (WINAPI *GetPackageStubPreference)( IInspectable *, HSTRING, int * );
++};
++
++static const struct IPackageManager9_compat_vtbl package_manager9_vtbl =
++{
++    {
++        package_manager9_QueryInterface,
++        package_manager9_AddRef,
++        package_manager9_Release,
++        package_manager9_GetIids,
++        package_manager9_GetRuntimeClassName,
++        package_manager9_GetTrustLevel,
++    },
++    package_manager9_FindProvisionedPackages,
++    package_manager9_AddPackageByUriAsync,
++    package_manager9_StagePackageByUriAsync,
++    package_manager9_RegisterPackageByUriAsync,
++    package_manager9_RegisterPackagesByFullNameAsync,
++    package_manager9_SetPackageStubPreference,
++    package_manager9_GetPackageStubPreference,
++};
++
+ struct package_manager_statics
+ {
+     IActivationFactory IActivationFactory_iface;
+@@ -346,6 +992,7 @@ static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID
+ 
+     if (IsEqualGUID( iid, &IID_IUnknown ) ||
+         IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
+         IsEqualGUID( iid, &IID_IActivationFactory ))
+     {
+         *out = &impl->IActivationFactory_iface;
+@@ -406,6 +1053,8 @@ static HRESULT WINAPI factory_ActivateInstance( IActivationFactory *iface, IInsp
+ 
+     impl->IPackageManager_iface.lpVtbl = &package_manager_vtbl;
+     impl->IPackageManager2_iface.lpVtbl = &package_manager2_vtbl;
++    impl->IPackageManager6_iface.lpVtbl = (const IInspectableVtbl *)&package_manager6_vtbl;
++    impl->IPackageManager9_iface.lpVtbl = (const IInspectableVtbl *)&package_manager9_vtbl;
+     impl->ref = 1;
+ 
+     *instance = (IInspectable *)&impl->IPackageManager_iface;
+@@ -432,3 +1081,102 @@ static struct package_manager_statics package_manager_statics =
+ };
+ 
+ IActivationFactory *package_manager_factory = &package_manager_statics.IActivationFactory_iface;
++
++struct add_package_options_statics
++{
++    IActivationFactory IActivationFactory_iface;
++    LONG ref;
++};
++
++static inline struct add_package_options_statics *impl_from_add_package_options_factory( IActivationFactory *iface )
++{
++    return CONTAINING_RECORD( iface, struct add_package_options_statics, IActivationFactory_iface );
++}
++
++static HRESULT WINAPI add_package_options_factory_QueryInterface( IActivationFactory *iface, REFIID iid, void **out )
++{
++    struct add_package_options_statics *impl = impl_from_add_package_options_factory( iface );
++
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IActivationFactory ))
++    {
++        *out = &impl->IActivationFactory_iface;
++        IActivationFactory_AddRef( *out );
++        return S_OK;
++    }
++
++    *out = NULL;
++    return E_NOINTERFACE;
++}
++
++static ULONG WINAPI add_package_options_factory_AddRef( IActivationFactory *iface )
++{
++    struct add_package_options_statics *impl = impl_from_add_package_options_factory( iface );
++    return InterlockedIncrement( &impl->ref );
++}
++
++static ULONG WINAPI add_package_options_factory_Release( IActivationFactory *iface )
++{
++    struct add_package_options_statics *impl = impl_from_add_package_options_factory( iface );
++    return InterlockedDecrement( &impl->ref );
++}
++
++static HRESULT WINAPI add_package_options_factory_GetIids( IActivationFactory *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI add_package_options_factory_GetRuntimeClassName( IActivationFactory *iface, HSTRING *class_name )
++{
++    return WindowsCreateString( L"Windows.Management.Deployment.AddPackageOptions",
++                                ARRAY_SIZE(L"Windows.Management.Deployment.AddPackageOptions") - 1, class_name );
++}
++
++static HRESULT WINAPI add_package_options_factory_GetTrustLevel( IActivationFactory *iface, TrustLevel *trust_level )
++{
++    if (!trust_level) return E_POINTER;
++    *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI add_package_options_factory_ActivateInstance( IActivationFactory *iface, IInspectable **instance )
++{
++    struct add_package_options *impl;
++
++    TRACE( "iface %p, instance %p.\n", iface, instance );
++
++    if (!instance) return E_POINTER;
++    if (!(impl = calloc( 1, sizeof(*impl) )))
++    {
++        *instance = NULL;
++        return E_OUTOFMEMORY;
++    }
++
++    impl->IInspectable_iface.lpVtbl = (const IInspectableVtbl *)&add_package_options_vtbl;
++    impl->ref = 1;
++
++    *instance = &impl->IInspectable_iface;
++    return S_OK;
++}
++
++static const struct IActivationFactoryVtbl add_package_options_factory_vtbl =
++{
++    add_package_options_factory_QueryInterface,
++    add_package_options_factory_AddRef,
++    add_package_options_factory_Release,
++    add_package_options_factory_GetIids,
++    add_package_options_factory_GetRuntimeClassName,
++    add_package_options_factory_GetTrustLevel,
++    add_package_options_factory_ActivateInstance,
++};
++
++static struct add_package_options_statics add_package_options_statics =
++{
++    {&add_package_options_factory_vtbl},
++    1,
++};
++
++IActivationFactory *add_package_options_factory = &add_package_options_statics.IActivationFactory_iface;
+diff --git a/dlls/appxdeploymentclient/private.h b/dlls/appxdeploymentclient/private.h
+index cc35ab9d7e..78b439f2e1 100644
+--- a/dlls/appxdeploymentclient/private.h
++++ b/dlls/appxdeploymentclient/private.h
+@@ -37,6 +37,7 @@
+ #include "windows.management.deployment.h"
+ 
+ extern IActivationFactory *package_manager_factory;
++extern IActivationFactory *add_package_options_factory;
+ 
+ #define DEFINE_IINSPECTABLE_( pfx, iface_type, impl_type, impl_from, iface_mem, expr )             \
+     static inline impl_type *impl_from( iface_type *iface )                                        \
+diff --git a/dlls/dwrite/font.c b/dlls/dwrite/font.c
+index c400410c64..a6b5d93706 100644
+--- a/dlls/dwrite/font.c
++++ b/dlls/dwrite/font.c
+@@ -3404,9 +3404,41 @@ static HRESULT WINAPI dwritefontcollection_GetFontFromFontFace(IDWriteFontCollec
+ 
+ static HRESULT WINAPI dwritefontcollection1_GetFontSet(IDWriteFontCollection3 *iface, IDWriteFontSet **fontset)
+ {
+-    FIXME("%p, %p.\n", iface, fontset);
++    struct dwrite_fontcollection *collection = impl_from_IDWriteFontCollection3(iface);
++    struct dwrite_font_data **fonts = NULL;
++    IDWriteFontSet1 *fontset1;
++    HRESULT hr;
++    size_t count = 0, i, j, offset = 0;
+ 
+-    return E_NOTIMPL;
++    TRACE("%p, %p.\n", iface, fontset);
++
++    *fontset = NULL;
++
++    for (i = 0; i < collection->count; ++i)
++        count += collection->family_data[i]->count;
++
++    if (count)
++    {
++        if (!(fonts = calloc(count, sizeof(*fonts))))
++            return E_OUTOFMEMORY;
++
++        for (i = 0; i < collection->count; ++i)
++        {
++            struct dwrite_fontfamily_data *family_data = collection->family_data[i];
++
++            for (j = 0; j < family_data->count; ++j)
++                fonts[offset++] = family_data->fonts[j];
++        }
++    }
++
++    hr = fontset_create_from_font_data(collection->factory, fonts, count, &fontset1);
++    free(fonts);
++    if (FAILED(hr))
++        return hr;
++
++    hr = IDWriteFontSet1_QueryInterface(fontset1, &IID_IDWriteFontSet, (void **)fontset);
++    IDWriteFontSet1_Release(fontset1);
++    return hr;
+ }
+ 
+ static HRESULT WINAPI dwritefontcollection1_GetFontFamily(IDWriteFontCollection3 *iface, UINT32 index,
+@@ -3469,9 +3501,18 @@ static DWRITE_FONT_FAMILY_MODEL WINAPI dwritefontcollection2_GetFontFamilyModel(
+ 
+ static HRESULT WINAPI dwritefontcollection2_GetFontSet(IDWriteFontCollection3 *iface, IDWriteFontSet1 **fontset)
+ {
+-    FIXME("%p, %p.\n", iface, fontset);
++    IDWriteFontSet *fontset0;
++    HRESULT hr;
+ 
+-    return E_NOTIMPL;
++    TRACE("%p, %p.\n", iface, fontset);
++
++    *fontset = NULL;
++    if (FAILED(hr = dwritefontcollection1_GetFontSet(iface, &fontset0)))
++        return hr;
++
++    hr = IDWriteFontSet_QueryInterface(fontset0, &IID_IDWriteFontSet1, (void **)fontset);
++    IDWriteFontSet_Release(fontset0);
++    return hr;
+ }
+ 
+ static HANDLE WINAPI dwritefontcollection3_GetExpirationEvent(IDWriteFontCollection3 *iface)
+diff --git a/dlls/oleacc/main.c b/dlls/oleacc/main.c
+index b2096d5d55..d00967d57f 100644
+--- a/dlls/oleacc/main.c
++++ b/dlls/oleacc/main.c
+@@ -101,6 +101,24 @@ HRESULT WINAPI CreateStdAccessibleObject( HWND hwnd, LONG idObject,
+     }
+ }
+ 
++HRESULT WINAPI CreateStdAccessibleProxyW( HWND hwnd, LPCWSTR class_name, LONG idObject,
++        REFIID riidInterface, void **ppvObject )
++{
++    FIXME("%p %s %ld %s %p semi-stub.\n", hwnd, debugstr_w(class_name), idObject,
++          debugstr_guid(riidInterface), ppvObject);
++
++    return CreateStdAccessibleObject(hwnd, idObject, riidInterface, ppvObject);
++}
++
++HRESULT WINAPI CreateStdAccessibleProxyA( HWND hwnd, LPCSTR class_name, LONG idObject,
++        REFIID riidInterface, void **ppvObject )
++{
++    FIXME("%p %s %ld %s %p semi-stub.\n", hwnd, debugstr_a(class_name), idObject,
++          debugstr_guid(riidInterface), ppvObject);
++
++    return CreateStdAccessibleObject(hwnd, idObject, riidInterface, ppvObject);
++}
++
+ HRESULT WINAPI ObjectFromLresult( LRESULT result, REFIID riid, WPARAM wParam, void **ppObject )
+ {
+     WCHAR atom_str[ARRAY_SIZE(lresult_atom_prefix)+3*8+3];
+diff --git a/dlls/oleacc/oleacc.spec b/dlls/oleacc/oleacc.spec
+index 9ad6e91596..7024a80a82 100644
+--- a/dlls/oleacc/oleacc.spec
++++ b/dlls/oleacc/oleacc.spec
+@@ -3,8 +3,8 @@
+ @ stdcall AccessibleObjectFromPoint(int64 ptr ptr)
+ @ stdcall AccessibleObjectFromWindow(ptr long ptr ptr)
+ @ stdcall CreateStdAccessibleObject(ptr long ptr ptr)
+-@ stub CreateStdAccessibleProxyA
+-@ stub CreateStdAccessibleProxyW
++@ stdcall CreateStdAccessibleProxyA(ptr str long ptr ptr)
++@ stdcall CreateStdAccessibleProxyW(ptr wstr long ptr ptr)
+ @ stdcall -private DllGetClassObject(ptr ptr ptr)
+ @ stdcall -private DllRegisterServer()
+ @ stdcall -private DllUnregisterServer()
