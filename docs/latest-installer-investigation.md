@@ -209,3 +209,58 @@ The current build now has two separate late-stage blockers:
 2. Direct Excel launch fails shortly afterward with `0xc06d007f`, near missing WinRT/auth/profile activation factories and Azure AD join stubs.
 
 This suggests the next useful work is either a targeted Wine patch/stub for the modern auth/profile/WinRT surface, or a stepwise Office build search to find the newest build before these integration/auth dependencies became launch-blocking.
+
+### Current Excel launch after native OSPP/SPP diagnostic
+
+Follow-up investigation moved the current/latest Excel launch much further than
+the original WinRT/auth crash and the later Office repair modal.
+
+Current diagnostic prefix:
+
+```text
+/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10/pfx
+```
+
+Important runtime fixes already in the patched Wine tree include WinRT
+activation shims, AppX deployment stubs, several kernel/userenv entry points,
+SPC indirect-data decoding in `crypt32`, and expanded `sppc` policy stubs.
+Those fixed real missing APIs, but did not by themselves clear Office repair
+event `702061`.
+
+The current concrete blocker is Office Software Protection Platform behavior.
+The latest/current x86 Office payload has OSPP files only in:
+
+```text
+root\vfs\ProgramFilesCommonX64\Microsoft Shared\OfficeSoftwareProtectionPlatform
+```
+
+It does not contain a current x86 OSPP/OSPPC payload under
+`ProgramFilesCommonX86`.
+
+Diagnostic result:
+
+- Materializing latest x64 OSPP into
+  `C:\Program Files\Common Files\Microsoft Shared\OfficeSoftwareProtectionPlatform`
+  and copying `OSPPC.DLL` to
+  `C:\Program Files\Common Files\Microsoft Shared\ClickToRun\0\osppc.dll`
+  fixed the Click-to-Run `osppc.dll` load failure but did not clear `702061`.
+- Replacing `system32/syswow64\sppc.dll` with native Office OSPPC and setting
+  `sppc=native,builtin` made `OSPPSVC.EXE` run and cleared repair event
+  `702061`.
+- Latest Excel then reached the visible human GUI step:
+  `Microsoft respects your privacy`, with the main window behind it titled
+  `Excel (Non-Commercial Use) (Unlicensed Product)`.
+
+The reversible diagnostic script is:
+
+```bash
+scripts/experiments/latest-native-ospp-diagnostic.sh status
+scripts/experiments/latest-native-ospp-diagnostic.sh apply
+scripts/experiments/latest-native-ospp-diagnostic.sh restore
+```
+
+Detailed notes:
+
+```text
+docs/latest-ospp-spp-findings.md
+```
