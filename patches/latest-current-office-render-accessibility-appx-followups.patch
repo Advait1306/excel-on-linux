@@ -1,8 +1,45 @@
 diff --git a/dlls/advapi32/eventlog.c b/dlls/advapi32/eventlog.c
-index 46300bd9e6..c2b4b3640a 100644
+index 46300bd9e6..6495b1ceff 100644
 --- a/dlls/advapi32/eventlog.c
 +++ b/dlls/advapi32/eventlog.c
-@@ -645,6 +645,8 @@ BOOL WINAPI ReportEventW( HANDLE hEventLog, WORD wType, WORD wCategory, DWORD dw
+@@ -632,6 +632,7 @@ BOOL WINAPI ReportEventW( HANDLE hEventLog, WORD wType, WORD wCategory, DWORD dw
+     PSID lpUserSid, WORD wNumStrings, DWORD dwDataSize, LPCWSTR *lpStrings, LPVOID lpRawData )
+ {
+     UINT i;
++    static BOOL broke_on_office_repair_event;
+ 
+     FIXME("(%p,0x%04x,0x%04x,0x%08lx,%p,0x%04x,0x%08lx,%p,%p): stub\n", hEventLog,
+           wType, wCategory, dwEventID, lpUserSid, wNumStrings, dwDataSize, lpStrings, lpRawData);
+@@ -641,10 +642,37 @@ BOOL WINAPI ReportEventW( HANDLE hEventLog, WORD wType, WORD wCategory, DWORD dw
+     if (wNumStrings == 0) return TRUE;
+     if (!lpStrings) return TRUE;
+ 
++    if (!broke_on_office_repair_event && dwEventID == 0x12c)
++    {
++        WCHAR env[4];
++
++        for (i = 0; i < wNumStrings; i++)
++        {
++            if (lpStrings[i] && wcsstr(lpStrings[i], L"702061") &&
++                GetEnvironmentVariableW(L"OFFICE_BREAK_ON_REPAIR_EVENT", env, sizeof(env) / sizeof(env[0])))
++            {
++                void *frames[32];
++                ULONG hash;
++                USHORT count, frame;
++
++                broke_on_office_repair_event = TRUE;
++                FIXME("breaking on Office repair event 702061 for stack capture.\n");
++                count = RtlCaptureStackBackTrace(0, sizeof(frames) / sizeof(frames[0]), frames, &hash);
++                FIXME("repair event stack hash %#lx, frames %u.\n", hash, count);
++                for (frame = 0; frame < count; frame++)
++                    FIXME("repair event frame[%u] = %p.\n", frame, frames[frame]);
++                DebugBreak();
++                break;
++            }
++        }
++    }
++
+     for (i = 0; i < wNumStrings; i++)
      {
          const WCHAR *line = lpStrings[i];
  
@@ -1321,10 +1358,10 @@ index cc35ab9d7e..78b439f2e1 100644
  #define DEFINE_IINSPECTABLE_( pfx, iface_type, impl_type, impl_from, iface_mem, expr )             \
      static inline impl_type *impl_from( iface_type *iface )                                        \
 diff --git a/dlls/sppc/sppc.c b/dlls/sppc/sppc.c
-index 8819961d7c..711e55cff0 100644
+index 8819961d7c..8ab1f49b86 100644
 --- a/dlls/sppc/sppc.c
 +++ b/dlls/sppc/sppc.c
-@@ -31,12 +31,155 @@
+@@ -31,12 +31,191 @@
  
  WINE_DEFAULT_DEBUG_CHANNEL(slc);
  
@@ -1332,6 +1369,21 @@ index 8819961d7c..711e55cff0 100644
 +
 +static SLID last_consumed_right;
 +static BOOL has_consumed_right;
++
++static HRESULT return_empty_string_policy(SLDATATYPE *type, UINT *size, BYTE **data)
++{
++    WCHAR *empty;
++
++    empty = LocalAlloc(LPTR, sizeof(WCHAR));
++    if (!empty)
++        return E_OUTOFMEMORY;
++
++    if (type)
++        *type = SL_DATA_SZ;
++    *size = sizeof(WCHAR);
++    *data = (BYTE *)empty;
++    return S_OK;
++}
 +
  HRESULT WINAPI SLGetLicensingStatusInformation(HSLC handle, const SLID *app, const SLID *product,
                                                 LPCWSTR name, UINT *count, SL_LICENSING_STATUS **status)
@@ -1426,6 +1478,24 @@ index 8819961d7c..711e55cff0 100644
 +    if (!handle || !name || !size || !data)
 +        return E_INVALIDARG;
 +
++    if (!wcscmp(name, L"*"))
++    {
++        WCHAR *empty;
++
++        empty = LocalAlloc(LPTR, sizeof(WCHAR));
++        if (!empty)
++            return E_OUTOFMEMORY;
++
++        if (type)
++            *type = SL_DATA_MULTI_SZ;
++        *size = sizeof(WCHAR);
++        *data = (BYTE *)empty;
++        return S_OK;
++    }
++
++    if (!wcsncmp(name, L"office-", 7))
++        return return_empty_string_policy(type, size, data);
++
 +    if (type)
 +        *type = SL_DATA_NONE;
 +    *size = 0;
@@ -1462,6 +1532,9 @@ index 8819961d7c..711e55cff0 100644
 +
 +    if (!context || !name || !size || !data)
 +        return E_INVALIDARG;
++
++    if (!wcsncmp(name, L"office-", 7))
++        return return_empty_string_policy(type, size, data);
 +
 +    if (type)
 +        *type = SL_DATA_NONE;
