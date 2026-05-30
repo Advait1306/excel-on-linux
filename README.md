@@ -7,6 +7,9 @@ experiment.
 
 - Excel runs visibly on Linux using a locally built Wine runtime from the
   CodeWeavers CrossOver 23.5 source archive.
+- The current engineering target is a reproducible non-CrossOver prefix using a
+  patched GE-Proton10-34 Wine build. Stock Proton is not required for this
+  checkpoint.
 - The currently verified clean path installs Office into a fresh local-Wine
   prefix, then launches Excel from that same prefix.
 - The clean path still depends on CrossOver-derived Wine source and bottle
@@ -80,6 +83,7 @@ That expects these local paths to exist:
   Click-to-Run/App-V behavior.
 - `patches/`: narrowed patch artifacts extracted from those diffs for porting
   toward Proton.
+- `config/`: the Office Deployment Tool XML used for the Excel-only payload.
 - `docs/`: build and input notes.
 - `public/`: relevant proof screenshots.
 

@@ -1,5 +1,31 @@
 # Local Wine Build Notes
 
+## Current Patched GE-Proton10-34 Runtime
+
+The current non-CrossOver target runtime is:
+
+- Source tree: `/home/mars-user/office-open-repro/valve-wine-ge10-src`
+- Valve Wine commit: `1729f00e17e879f98f9df1f2bca86bc5d21a65df`
+- Install prefix: `/home/mars-user/office-open-repro/valve-wine-ge10-install`
+- Version string: `wine-8.0-15655-g1729f00e17`
+- Patch: `patches/ge-proton10-34-office-appv-rpc-port.patch`
+
+Both x64 and x86/WOW64 sides were configured with `--without-gstreamer` to
+avoid an unrelated system GStreamer header mismatch.
+
+Verification:
+
+```bash
+/home/mars-user/office-open-repro/valve-wine-ge10-install/bin/wine --version
+/home/mars-user/office-open-repro/valve-wine-ge10-install/bin/wine64 --version
+nm /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/i386-unix/ntdll.so | grep __wine_rpc_NtReadFile
+nm /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/x86_64-unix/ntdll.so | grep __wine_rpc_NtReadFile
+i686-w64-mingw32-nm /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/i386-windows/rpcrt4.dll | grep -i wine_rpc_NtReadFile
+x86_64-w64-mingw32-nm /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/x86_64-windows/rpcrt4.dll | grep -i wine_rpc_NtReadFile
+```
+
+## Earlier CodeWeavers-Source Runtime
+
 The current open runtime was built from the official CodeWeavers CrossOver 23.5
 source archive, specifically the bundled Wine source. The installed output is
 not committed to this repository.
