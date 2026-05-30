@@ -1631,10 +1631,10 @@ index 732b819c15..a865de75ca 100644
   *  RtlNumberGenericTableElementsAvl  (NTDLL.@)
   */
 diff --git a/dlls/sppc/sppc.c b/dlls/sppc/sppc.c
-index 8819961d7c..8ee8bbc914 100644
+index 8819961d7c..a69c7f732f 100644
 --- a/dlls/sppc/sppc.c
 +++ b/dlls/sppc/sppc.c
-@@ -31,12 +31,434 @@
+@@ -31,12 +31,463 @@
  
  WINE_DEFAULT_DEBUG_CHANNEL(slc);
  
@@ -1686,6 +1686,21 @@ index 8819961d7c..8ee8bbc914 100644
 +    if (type)
 +        *type = SL_DATA_MULTI_SZ;
 +    *size = len * sizeof(WCHAR);
++    *data = (BYTE *)multi;
++    return S_OK;
++}
++
++static HRESULT return_empty_policy_name_list(SLDATATYPE *type, UINT *size, BYTE **data)
++{
++    WCHAR *multi;
++
++    multi = LocalAlloc(LPTR, sizeof(WCHAR));
++    if (!multi)
++        return E_OUTOFMEMORY;
++
++    if (type)
++        *type = SL_DATA_MULTI_SZ;
++    *size = sizeof(WCHAR);
 +    *data = (BYTE *)multi;
 +    return S_OK;
 +}
@@ -1977,7 +1992,14 @@ index 8819961d7c..8ee8bbc914 100644
 +        return E_INVALIDARG;
 +
 +    if (!wcscmp(name, L"*"))
++    {
++        if (GetEnvironmentVariableW(L"OFFICE_SPP_EMPTY_POLICY_LIST", env, ARRAY_SIZE(env)))
++        {
++            FIXME("returning diagnostic empty policy name list.\n");
++            return return_empty_policy_name_list(type, size, data);
++        }
 +        return return_policy_name_list(type, size, data);
++    }
 +
 +    if (!wcsncmp(name, L"office-", lstrlenW(L"office-")) &&
 +        GetEnvironmentVariableW(L"OFFICE_SPP_EMPTY_OFFICE_POLICIES", env, ARRAY_SIZE(env)))
@@ -2037,7 +2059,14 @@ index 8819961d7c..8ee8bbc914 100644
 +        return E_INVALIDARG;
 +
 +    if (!wcscmp(name, L"*"))
++    {
++        if (GetEnvironmentVariableW(L"OFFICE_SPP_EMPTY_POLICY_LIST", env, ARRAY_SIZE(env)))
++        {
++            FIXME("returning diagnostic empty application policy name list.\n");
++            return return_empty_policy_name_list(type, size, data);
++        }
 +        return return_policy_name_list(type, size, data);
++    }
 +
 +    if (!wcsncmp(name, L"office-", lstrlenW(L"office-")) &&
 +        GetEnvironmentVariableW(L"OFFICE_SPP_EMPTY_OFFICE_POLICIES", env, ARRAY_SIZE(env)))
@@ -2129,6 +2158,113 @@ index 6926d4d8b6..d5163a715d 100644
 +@ stdcall SLUnloadApplicationPolicies(ptr long)
  @ stub SLUnregisterEvent
  @ stub SLUnregisterPlugin
+diff --git a/dlls/userenv/Makefile.in b/dlls/userenv/Makefile.in
+index 193232e942..8f3b193b79 100644
+--- a/dlls/userenv/Makefile.in
++++ b/dlls/userenv/Makefile.in
+@@ -1,6 +1,6 @@
+ EXTRADEFS = -D_USERENV_
+ MODULE    = userenv.dll
+-IMPORTS   = advapi32
++IMPORTS   = advapi32 ole32
+ IMPORTLIB = userenv
+ 
+ EXTRADLLFLAGS = -Wb,--prefer-native
+diff --git a/dlls/userenv/userenv.spec b/dlls/userenv/userenv.spec
+index 6395bba194..e45bc6a613 100644
+--- a/dlls/userenv/userenv.spec
++++ b/dlls/userenv/userenv.spec
+@@ -2,6 +2,7 @@
+ 
+ @ stdcall CreateAppContainerProfile(wstr wstr wstr ptr long ptr)
+ @ stdcall CreateEnvironmentBlock(ptr ptr long)
++@ stdcall DeriveAppContainerSidFromAppContainerName(wstr ptr)
+ @ stdcall DestroyEnvironmentBlock(ptr)
+ @ stdcall EnterCriticalPolicySection(long)
+ @ stdcall ExpandEnvironmentStringsForUserA(ptr str ptr long)
+@@ -9,6 +10,7 @@
+ @ stdcall GetAllUsersProfileDirectoryA(ptr ptr)
+ @ stdcall GetAllUsersProfileDirectoryW(ptr ptr)
+ @ stdcall GetAppliedGPOListW(long wstr ptr ptr ptr)
++@ stdcall GetAppContainerFolderPath(wstr ptr)
+ @ stdcall GetDefaultUserProfileDirectoryA(ptr ptr)
+ @ stdcall GetDefaultUserProfileDirectoryW(ptr ptr)
+ @ stdcall GetProfilesDirectoryA(ptr ptr)
+diff --git a/dlls/userenv/userenv_main.c b/dlls/userenv/userenv_main.c
+index 2d9f245f1b..00edbe2f66 100644
+--- a/dlls/userenv/userenv_main.c
++++ b/dlls/userenv/userenv_main.c
+@@ -697,3 +697,70 @@ HRESULT WINAPI CreateAppContainerProfile(PCWSTR container_name, PCWSTR display_n
+ 
+     return E_NOTIMPL;
+ }
++
++static DWORD appcontainer_name_hash(PCWSTR name, UINT index)
++{
++    DWORD hash = 2166136261u ^ index;
++
++    while (*name)
++    {
++        WCHAR ch = *name++;
++
++        if (ch >= 'A' && ch <= 'Z')
++            ch += 'a' - 'A';
++        hash ^= ch;
++        hash *= 16777619u;
++        hash = (hash << 5) | (hash >> 27);
++    }
++    return hash ? hash : index + 1;
++}
++
++HRESULT WINAPI DeriveAppContainerSidFromAppContainerName(PCWSTR container_name, PSID *container_sid)
++{
++    SID_IDENTIFIER_AUTHORITY authority = { SECURITY_APP_PACKAGE_AUTHORITY };
++    DWORD rid[7];
++    UINT i;
++
++    FIXME("(%s, %p): semi-stub\n", debugstr_w(container_name), container_sid);
++
++    if (!container_name || !container_sid)
++        return E_INVALIDARG;
++
++    for (i = 0; i < ARRAY_SIZE(rid); ++i)
++        rid[i] = appcontainer_name_hash(container_name, i);
++
++    if (!AllocateAndInitializeSid(&authority, SECURITY_APP_PACKAGE_RID_COUNT,
++            SECURITY_APP_PACKAGE_BASE_RID, rid[0], rid[1], rid[2], rid[3], rid[4], rid[5], rid[6],
++            container_sid))
++        return HRESULT_FROM_WIN32(GetLastError());
++
++    return S_OK;
++}
++
++HRESULT WINAPI GetAppContainerFolderPath(PCWSTR container_sid, PWSTR *path)
++{
++    static const WCHAR packagesW[] = L"\\Packages\\";
++    static const WCHAR acW[] = L"\\AC";
++    WCHAR local_appdata[MAX_PATH];
++    SIZE_T len;
++    PWSTR ret;
++
++    FIXME("(%s, %p): semi-stub\n", debugstr_w(container_sid), path);
++
++    if (!container_sid || !path)
++        return E_INVALIDARG;
++
++    if (!GetEnvironmentVariableW(L"LOCALAPPDATA", local_appdata, ARRAY_SIZE(local_appdata)))
++        lstrcpyW(local_appdata, L"C:\\users\\Public\\AppData\\Local");
++
++    len = lstrlenW(local_appdata) + ARRAY_SIZE(packagesW) - 1 + lstrlenW(container_sid) + ARRAY_SIZE(acW);
++    if (!(ret = CoTaskMemAlloc(len * sizeof(WCHAR))))
++        return E_OUTOFMEMORY;
++
++    lstrcpyW(ret, local_appdata);
++    lstrcatW(ret, packagesW);
++    lstrcatW(ret, container_sid);
++    lstrcatW(ret, acW);
++    *path = ret;
++    return S_OK;
++}
 diff --git a/dlls/xmllite/reader.c b/dlls/xmllite/reader.c
 index 1e146493aa..8017755565 100644
 --- a/dlls/xmllite/reader.c
@@ -2188,3 +2324,23 @@ index 4980a96e73..0398eed7aa 100644
 +#define SL_E_AUTHN_CANT_VERIFY        0xC004F07A
  
  #endif /* __WINE_SLERROR_H */
+diff --git a/include/userenv.h b/include/userenv.h
+index a518de83a2..625d315885 100644
+--- a/include/userenv.h
++++ b/include/userenv.h
+@@ -80,6 +80,7 @@ extern "C" {
+ #endif
+ 
+ USERENVAPI BOOL WINAPI CreateEnvironmentBlock(LPVOID*,HANDLE,BOOL);
++USERENVAPI HRESULT WINAPI DeriveAppContainerSidFromAppContainerName(PCWSTR,PSID*);
+ USERENVAPI BOOL WINAPI DestroyEnvironmentBlock(LPVOID);
+ USERENVAPI HANDLE WINAPI EnterCriticalPolicySection(BOOL);
+ USERENVAPI BOOL WINAPI ExpandEnvironmentStringsForUserA(HANDLE,LPCSTR,LPSTR,DWORD);
+@@ -88,6 +89,7 @@ USERENVAPI BOOL WINAPI ExpandEnvironmentStringsForUserW(HANDLE,LPCWSTR,LPWSTR,DW
+ USERENVAPI DWORD WINAPI GetAppliedGPOListW(DWORD,LPCWSTR,PSID,GUID*,PGROUP_POLICY_OBJECTW*);
+ USERENVAPI DWORD WINAPI GetAppliedGPOListA(DWORD,LPCSTR,PSID,GUID*,PGROUP_POLICY_OBJECTA*);
+ #define                 GetAppliedGPOList WINELIB_NAME_AW(GetAppliedGPOList)
++USERENVAPI HRESULT WINAPI GetAppContainerFolderPath(PCWSTR,PWSTR*);
+ USERENVAPI BOOL WINAPI GetUserProfileDirectoryA(HANDLE,LPSTR,LPDWORD);
+ USERENVAPI BOOL WINAPI GetUserProfileDirectoryW(HANDLE,LPWSTR,LPDWORD);
+ #define                GetUserProfileDirectory WINELIB_NAME_AW(GetUserProfileDirectory)
