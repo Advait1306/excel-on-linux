@@ -1,0 +1,299 @@
+wineserver: using server-side synchronization.
+0078:fixme:ole:CoInitializeSecurity 0000000000000000, -1, 0000000000000000, 0000000000000000, 0, 3, 0000000000000000, 0, 0000000000000000 stub
+0078:fixme:ntdll:EtwEventSetInformation (deadbeef, 0, 0000000000000000, 0) stub
+0078:fixme:ntdll:EtwEventSetInformation (deadbeef, 2, 0000000140ADECC1, 56) stub
+0078:fixme:nls:get_dummy_preferred_ui_language (0x8 0x409 000000000011F390 0000000000000000 000000000011F394) returning a dummy value (current locale)
+0078:fixme:nls:get_dummy_preferred_ui_language (0x8 0x409 000000000011F390 0000000140C2E3B0 000000000011F394) returning a dummy value (current locale)
+007c:fixme:sync:SetWaitableTimerEx (00000000000000B4, 000000000185F8F0, 0, 0000000000000000, 0000000000000000, 0000000000000000, 1320) semi-stub
+0078:fixme:secur32:GetUserNameExW NameFormat 12 not implemented
+0078:fixme:process:SetProcessMitigationPolicy (16, 000000000011FA40, 4): stub
+0094:fixme:kernelbase:AppPolicyGetThreadInitializationType FFFFFFFFFFFFFFFA, 0000000001C5FF80
+008c:fixme:reg:NtSetInformationKey (0x158,0x00000002,0x1b5e380,0x00000004) stub
+008c:fixme:ntdll:EtwEventSetInformation (deadbeef, 2, 00006FFFF94C07F4, 32) stub
+008c:fixme:ntdll:EtwEventActivityIdControl 0x1, 0000000001B5DDFC: stub
+008c:fixme:ntdll:EtwEventSetInformation (deadbeef, 2, 00006FFFF940B6BD, 32) stub
+008c:fixme:ntdll:EtwEventSetInformation (deadbeef, 2, 00006FFFF92BAA8D, 32) stub
+008c:fixme:ntdll:EtwEventSetInformation (deadbeef, 2, 00006FFFF921A505, 32) stub
+008c:fixme:ntdll:EtwEventSetInformation (deadbeef, 2, 00006FFFF917FF39, 32) stub
+008c:fixme:ntdll:EtwEventSetInformation (deadbeef, 2, 00006FFFF90C9D15, 32) stub
+008c:fixme:ntdll:EtwEventSetInformation (deadbeef, 2, 00006FFFF8DBD785, 32) stub
+008c:fixme:ntdll:EtwEventSetInformation (deadbeef, 2, 00006FFFF8E9CA42, 32) stub
+008c:fixme:userenv:GetProfileType 0000000001B5D328
+008c:fixme:rpc:RpcServerRegisterIf3 Unsupported SecurityDescriptor argument.
+008c:fixme:rpc:RpcServerRegisterIf3 Unsupported SecurityDescriptor argument.
+00b0:fixme:wtsapi:WTSEnumerateSessionsW 0000000000000000 0x00000000 0x00000001 000000000205FBC8 000000000205FBD4 semi-stub.
+008c:fixme:rpc:RpcServerRegisterIf3 Unsupported SecurityDescriptor argument.
+00b0:fixme:wtsapi:WTSQueryUserToken 1 000000000205FA48 semi-stub!
+00b0:fixme:secur32:GetUserNameExW NameFormat 12 not implemented
+00b0:fixme:userenv:LoadUserProfileW 00000000000001F8 000000000205F728
+00b0:fixme:security:ImpersonateLoggedOnUser (00000000000001F0)
+00bc:fixme:netprofm:list_manager_QueryInterface interface {e19c7100-9709-4db7-9373-e7b518b47086} not implemented
+00bc:fixme:netprofm:connection_point_Advise 0000000001318100, 00000000013CB8C0, 000000000235FEC0 - semi-stub
+00b0:fixme:userenv:GetProfileType 000000000205F3C8
+0024:err:kerberos:kerberos_LsaApInitializePackage no Kerberos support, expect problems
+0024:fixme:seh:WerRegisterRuntimeExceptionModule (L"C:\\Program Files\\Common Files\\Microsoft Shared\\ClickToRun\\c2r32werhandler.dll", 00000000) stub
+0024:fixme:ntdll:EtwEventSetInformation (deadbeef, 2, 7B55D0E5, 32) stub
+0184:fixme:oleacc:find_class_data unhandled window class: L"#32769"
+0184:fixme:uiautomation:uia_get_providers_for_hwnd Override provider callback currently unimplemented.
+0184:fixme:uiautomation:default_uia_provider_callback Default ProviderType_NonClientArea provider unimplemented.
+0184:fixme:oleacc:find_class_data unhandled window class: L"#32769"
+0184:fixme:uiautomation:base_hwnd_fragment_get_FragmentRoot 0000000000815C08, 000000000021FA10: stub!
+0184:fixme:uiautomation:base_hwnd_fragment_GetEmbeddedFragmentRoots 0000000000815C08, 000000000021FA20: stub!
+0164:fixme:rpc:RpcServerRegisterIf3 Unsupported SecurityDescriptor argument.
+0164:fixme:rpc:RpcServerRegisterIf3 Unsupported SecurityDescriptor argument.
+0164:fixme:file:GetLongPathNameW UNC pathname L"\\\\?\\C:\\Program Files (x86)\\Microsoft Office\\root\\VFS"
+0164:fixme:file:GetLongPathNameW UNC pathname L"\\\\?\\C:\\ProgramData"
+0164:fixme:file:GetLongPathNameW UNC pathname L"\\\\?\\C:\\windows\\Fonts"
+0164:fixme:file:GetLongPathNameW UNC pathname L"\\\\?\\C:\\Program Files\\Common Files"
+0164:fixme:file:GetLongPathNameW UNC pathname L"\\\\?\\C:\\Program Files (x86)\\Common Files"
+0164:fixme:file:GetLongPathNameW UNC pathname L"\\\\?\\C:\\Program Files"
+0164:fixme:file:GetLongPathNameW UNC pathname L"\\\\?\\C:\\Program Files (x86)"
+0164:fixme:file:GetLongPathNameW UNC pathname L"\\\\?\\C:\\windows\\system32"
+0164:fixme:file:GetLongPathNameW UNC pathname L"\\\\?\\C:\\windows\\syswow64"
+0164:fixme:file:GetLongPathNameW UNC pathname L"\\\\?\\C:\\windows"
+0164:fixme:rpc:RpcServerRegisterIf3 Unsupported SecurityDescriptor argument.
+0164:fixme:rpc:RpcServerRegisterIf3 Unsupported SecurityDescriptor argument.
+0164:fixme:rpc:RpcServerRegisterIf3 Unsupported SecurityDescriptor argument.
+0164:fixme:rpc:RpcServerRegisterIf3 Unsupported SecurityDescriptor argument.
+0164:fixme:rpc:RpcServerRegisterIf3 Unsupported SecurityDescriptor argument.
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:ntdll:EtwEventSetInformation (deadbeef, 0, 00000000, 0) stub
+0024:fixme:ntdll:EtwEventSetInformation (deadbeef, 0, 00000000, 0) stub
+0024:fixme:ntdll:EtwEventSetInformation (deadbeef, 0, 00000000, 0) stub
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:ntdll:EtwEventSetInformation (deadbeef, 0, 00000000, 0) stub
+0024:fixme:ntdll:EtwEventSetInformation (deadbeef, 0, 00000000, 0) stub
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:process:RegisterApplicationRecoveryCallback 77AB080E, 786152D8, 0, 0: stub, faking success
+0024:fixme:process:RegisterApplicationRestart (L"/restore",0)
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:ntdll:EtwEventSetInformation (deadbeef, 2, 78C528A9, 56) stub
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:nls:get_dummy_preferred_ui_language (0x8 0x409 03A6F558 00000000 03A6F554) returning a dummy value (current locale)
+0024:fixme:nls:get_dummy_preferred_ui_language (0x8 0x409 03A6F558 78602B58 03A6F554) returning a dummy value (current locale)
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:seh:WerRegisterFile (L"C:\\users\\steamuser\\AppData\\Local\\Temp\\{0B054327-524B-47EE-AD14-0E9E6AB78C40} - OProcSessId.dat", 2, 3) stub
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:wintypes:RoIsApiContractMajorVersionPresent name L"Windows.Foundation.UniversalApiContract", major 15, result 03A6F8B8
+0024:fixme:wintypes:RoIsApiContractMajorVersionPresent name L"Windows.Foundation.UniversalApiContract", major 14, result 03A6F8B8
+0024:fixme:wintypes:RoIsApiContractMajorVersionPresent name L"Windows.Foundation.UniversalApiContract", major 13, result 03A6F8B8
+0024:fixme:wintypes:RoIsApiContractMajorVersionPresent name L"Windows.Foundation.UniversalApiContract", major 12, result 03A6F8B8
+0024:fixme:wintypes:RoIsApiContractMajorVersionPresent name L"Windows.Foundation.UniversalApiContract", major 11, result 03A6F8B8
+0024:fixme:wintypes:RoIsApiContractMajorVersionPresent name L"Windows.Foundation.UniversalApiContract", major 10, result 03A6F8B8
+0024:fixme:wintypes:RoIsApiContractMajorVersionPresent name L"Windows.Foundation.UniversalApiContract", major 9, result 03A6F8B8
+0024:fixme:wintypes:RoIsApiContractMajorVersionPresent name L"Windows.Foundation.UniversalApiContract", major 8, result 03A6F8B8
+0024:fixme:wintypes:RoIsApiContractMajorVersionPresent name L"Windows.Foundation.UniversalApiContract", major 7, result 03A6F8B8
+0024:fixme:advapi:RegisterEventSourceW ((null),L"Microsoft Office 16 Alerts"): stub
+0024:fixme:advapi:ReportEventW (CAFE4242,0x0004,0x0000,0x0000012c,00000000,0x0002,0x00000000,03A6F918,00000000): stub
+0024:fixme:advapi:DeregisterEventSource (CAFE4242) stub
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:wtsapi:WTSRegisterSessionNotification Stub 00030082 0x00000000
+0024:fixme:d3d:wined3d_guess_card No card selector available for card vendor 0000 (using GL_RENDERER "llvmpipe (LLVM 15.0.7, 256 bits)").
+0024:fixme:ntdll:NtQuerySystemInformation info_class SYSTEM_PERFORMANCE_INFORMATION
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:d3d:wined3d_guess_card No card selector available for card vendor 0000 (using GL_RENDERER "llvmpipe (LLVM 15.0.7, 256 bits)").
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:seh:WerRegisterCustomMetadata (L"Audience", L"Production") stub
+0024:fixme:seh:WerRegisterCustomMetadata (L"AudienceGroup", L"Production") stub
+0024:fixme:seh:WerRegisterCustomMetadata (L"Channel", L"CC") stub
+0024:fixme:seh:WerRegisterCustomMetadata (L"InstallType", L"2") stub
+0024:fixme:seh:WerRegisterCustomMetadata (L"OfficeProcArch", L"x86") stub
+0024:fixme:seh:WerRegisterCustomMetadata (L"SessionId", L"{0B054327-524B-47EE-AD14-0E9E6AB78C40}") stub
+0024:fixme:seh:WerRegisterCustomMetadata (L"ClientId", L"{7BEEEC1A-3780-4BAC-AFB6-7A7BF6A13088}") stub
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:process:GetProcessMitigationPolicy (00000144, 1, 03A6FBA8, 4): stub
+0024:fixme:process:SetProcessMitigationPolicy (1, 03A6FBA8, 4): stub
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:system:SetThreadDpiHostingBehavior (1): stub
+0050:fixme:mountmgr:query_property Faking StorageDeviceSeekPenaltyProperty data.
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:win:GetPointerDevices (03A6FC14 00000000): partial stub
+0024:fixme:win:GetPointerDevices (03A6FC14 05984000): partial stub
+0024:fixme:ntdll:EtwEventSetInformation (deadbeef, 0, 00000000, 0) stub
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01c0:fixme:thread:QueryThreadCycleTime (0000017C,05AB9F3C): stub!
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:font:find_matching_face Untranslated charset 255
+0024:fixme:combase:RoGetActivationFactory (L"Windows.ApplicationModel.Core.CoreApplication", {0aacf7a4-5e1d-49df-8034-fb6a68bc5ed1}, 03A6D7A4): semi-stub
+0024:err:combase:RoGetActivationFactory Failed to find library for L"Windows.ApplicationModel.Core.CoreApplication"
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01c8:fixme:sync:SetWaitableTimerEx (000001D0, 0E2CF938, 0, 00000000, 00000000, 00000000, 10000) semi-stub
+0024:fixme:combase:RoOriginateLanguageException 0x80040154, L"", 00000000: stub
+01cc:fixme:ntdll:NtQueryInformationToken TokenUIAccess stub!
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0050:fixme:mountmgr:enumerate_credentials not supported
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:win:RegisterPointerDeviceNotifications (000100C0 0): stub
+0024:fixme:wtsapi:WTSRegisterSessionNotificationEx Stub 00000000 000100C0 0x00000000
+01cc:fixme:netprofm:list_manager_QueryInterface interface {e19c7100-9709-4db7-9373-e7b518b47086} not implemented
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0024:fixme:process:GetProcessMitigationPolicy (00000218, 12, 03A6D904, 4): stub
+01c8:fixme:webservices:WsCreateHeap ignoring error parameter
+01c8:fixme:webservices:WsCreateReader ignoring error parameter
+01c8:fixme:webservices:WsSetInput ignoring error parameter
+01c8:fixme:webservices:WsFillReader ignoring error parameter
+01c8:fixme:webservices:WsReadToStartElement ignoring error parameter
+01c8:fixme:webservices:WsReadStartElement ignoring error parameter
+01c8:fixme:webservices:WsReadToStartElement ignoring error parameter
+01c8:fixme:webservices:WsReadType ignoring error parameter
+0024:fixme:mscoree:get_runtime_info unsupported runtimeinfo flags 50
+0024:fixme:mscoree:get_runtime Unrecognized version L"v2.0.0"
+0024:fixme:mscoree:LockClrVersion (73E4287B 74DFCF90 74DFCF8C): stub
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01e0:fixme:kernelbase:AppPolicyGetThreadInitializationType FFFFFFFA, 0FC0FF18
+0024:fixme:secur32:GetUserNameExW NameFormat 12 not implemented
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01d4:fixme:ver:GetFileVersionInfoSizeExW flags 0x2 ignored
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01d0:fixme:ntdll:NtQueryInformationToken TokenUIAccess stub!
+01d4:fixme:secur32:GetUserNameExW NameFormat 8 not implemented
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01e8:fixme:secur32:GetUserNameExW NameFormat 8 not implemented
+01e8:fixme:combase:RoGetActivationFactory (L"Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager", {6aca7c92-a581-4479-9c10-752eff44fd34}, 10D3F964): semi-stub
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01e8:err:combase:RoGetActivationFactory Failed to find library for L"Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager"
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01f0:fixme:secur32:GetUserNameExW NameFormat 8 not implemented
+01d0:fixme:wbemprox:wbem_locator_QueryInterface interface {e19c7100-9709-4db7-9373-e7b518b47086} not implemented
+01d0:fixme:wbemprox:client_security_SetBlanket 6E8628F4, 05BA3E08, 10, 0, (null), 3, 3, 00000000, 0
+01d0:fixme:wbemprox:client_security_Release 6E8628F4
+0050:fixme:mountmgr:query_property Faking StorageDeviceProperty data
+01e4:fixme:winhttp:request_query_option unimplemented option 77
+0024:fixme:reg:NtQueryLicenseValue License key L"Microsoft-Windows-Container-License-Mode" not found
+0024:fixme:combase:RoGetActivationFactory (L"Windows.System.Profile.RetailInfo", {00000035-0000-0000-c000-000000000046}, 03A6D648): semi-stub
+01e8:fixme:combase:RoOriginateLanguageException 0x80040154, L"", 00000000: stub
+0024:err:combase:RoGetActivationFactory Failed to find library for L"Windows.System.Profile.RetailInfo"
+01f4:fixme:secur32:GetUserNameExW NameFormat 8 not implemented
+01f8:fixme:combase:RoGetActivationFactory (L"Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager", {54e633fe-96e0-41e8-9832-1298897c2aaf}, 1163FAA8): semi-stub
+01f4:fixme:combase:RoGetActivationFactory (L"Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager", {6aca7c92-a581-4479-9c10-752eff44fd34}, 1133F964): semi-stub
+01f8:err:combase:RoGetActivationFactory Failed to find library for L"Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager"
+01f4:err:combase:RoGetActivationFactory Failed to find library for L"Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager"
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01f8:fixme:combase:RoOriginateLanguageException 0x80040154, L"", 00000000: stub
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01f4:fixme:combase:RoOriginateLanguageException 0x80040154, L"", 00000000: stub
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01d4:fixme:netapi32:NetGetAadJoinInformation ((null), 0EFCFB4C): stub
+01d4:fixme:netapi32:NetGetJoinInformation Semi-stub (null) 0EFCFB3C 0EFCFB38
+01d4:fixme:secur32:GetUserNameExW NameFormat 8 not implemented
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01bc:fixme:d3d:wined3d_guess_card No card selector available for card vendor 0000 (using GL_RENDERER "llvmpipe (LLVM 15.0.7, 256 bits)").
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+wine: Unhandled exception 0xc06d007f in thread 24 at address 7B5FC487 (thread 0024), starting debugger...
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01ec:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+0164:fixme:file:NtFsControlFile FSCTL_PIPE_IMPERSONATE: impersonating self
+01bc:fixme:dxgi:DXGID3D10CreateDevice Ignoring flags 0x20.
+007c:fixme:netprofm:list_manager_QueryInterface interface {e19c7100-9709-4db7-9373-e7b518b47086} not implemented
+021c:fixme:webservices:WsCreateHeap ignoring error parameter
+021c:fixme:webservices:WsCreateReader ignoring error parameter
+021c:fixme:webservices:WsSetInput ignoring error parameter
+021c:fixme:webservices:WsFillReader ignoring error parameter
+021c:fixme:webservices:WsReadToStartElement ignoring error parameter
+021c:fixme:webservices:WsReadStartElement ignoring error parameter
+021c:fixme:webservices:WsReadToStartElement ignoring error parameter
+021c:fixme:webservices:WsReadType ignoring error parameter
+0224:fixme:combase:RoGetActivationFactory (L"Windows.Networking.Connectivity.NetworkInformation", {5074f851-950d-4165-9c15-365619481eea}, 0000000004391C38): semi-stub
+0224:fixme:netprofm:list_manager_QueryInterface interface {e19c7100-9709-4db7-9373-e7b518b47086} not implemented
+0224:fixme:netprofm:cost_manager_GetCost 000000000134B208, 00000000040FFE30, 0000000000000000
+0224:fixme:netprofm:connection_point_Advise 000000000134B2B0, 0000000004391C20, 0000000004391D30 - semi-stub
+0224:fixme:netprofm:connection_point_Advise 000000000134B2E8, 0000000004391C20, 0000000004391D2C - semi-stub
+0224:fixme:netprofm:connection_point_Advise 000000000134B240, 0000000004391C20, 0000000004391D34 - semi-stub
+021c:fixme:file:NtLockFile I/O completion on lock not implemented yet
+021c:fixme:combase:RoGetActivationFactory (L"Windows.Security.Authentication.OnlineId.OnlineIdSystemAuthenticator", {85047792-f634-41e3-96a4-5164e902c740}, 0000000003CFEED0): semi-stub
+021c:fixme:combase:RoGetActivationFactory (L"Windows.Security.Authentication.OnlineId.OnlineIdServiceTicketRequest", {bebb0a08-9e73-4077-9614-08614c0bc245}, 0000000003CFEEF0): semi-stub
+021c:fixme:onlineid:ticket_request_factory_statics_CreateOnlineIdServiceTicketRequest iface 00006FFFF81B4098, service L"https://events.data.microsoft.com/OneCollector/1.0/", policy L"NFS_1wk_compact_SSL", request 0000000003CFEEF8 stub!
+021c:fixme:reg:NtQueryLicenseValue License key L"Microsoft-Windows-Container-License-Mode" not found
+0080:fixme:win:RegisterPowerSettingNotification (0000000000010034,{245d8541-3943-4422-b025-13a784f679b7},0): stub
+0080:fixme:win:RegisterPowerSettingNotification (0000000000010034,{5d3e9a59-e9d5-4b00-a6bd-ff34ff516548},0): stub
+0080:fixme:win:RegisterPowerSettingNotification (0000000000010034,{a7ad8041-b45a-4cae-87a3-eecbb468a9e1},0): stub
+0080:fixme:win:RegisterPowerSettingNotification (0000000000010034,{98a7f580-01f7-48aa-9c0f-44352c29e5c0},0): stub
+0080:fixme:win:RegisterPowerSettingNotification (0000000000010034,{02731015-4510-4526-99e6-e5a17ebd1aea},0): stub
+0080:fixme:win:RegisterPowerSettingNotification (0000000000010034,{3c0f4548-c03f-4c4d-b9f2-237ede686376},0): stub
+007c:fixme:combase:RoGetActivationFactory (L"Windows.Security.Authentication.OnlineId.OnlineIdSystemAuthenticator", {85047792-f634-41e3-96a4-5164e902c740}, 000000000185F930): semi-stub
+007c:fixme:combase:RoGetActivationFactory (L"Windows.Security.Authentication.OnlineId.OnlineIdServiceTicketRequest", {bebb0a08-9e73-4077-9614-08614c0bc245}, 000000000185F950): semi-stub
+007c:fixme:onlineid:ticket_request_factory_statics_CreateOnlineIdServiceTicketRequest iface 00006FFFF81B4098, service L"https://events.data.microsoft.com/OneCollector/1.0/", policy L"NFS_1wk_compact_SSL", request 000000000185F958 stub!
+/home/mars-user/excel-on-linux/scripts/office-latest-experiment.sh: line 27: 609726 Killed                  WINEPREFIX="$PREFIX" "$WINEBIN" "$@"

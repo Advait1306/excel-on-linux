@@ -161,3 +161,51 @@ Relevant log:
 Interpretation:
 
 The current ODT lane is the better reproducible path. It is using the intended WOW64/x86 Excel-only configuration in our own patched GE Wine prefix, and it gets substantially past startup/download into final Office integration. The current blocker is not raw network speed: the payload appears downloaded and staged, but modern Current Channel Office crashes `integrator.exe` during C2R license integration with `0xc0000005`, surfaced by the installer as `30015-11 (3221225477)`.
+
+### Direct Excel launch after the `30015-11` installer failure
+
+After preserving the installer failure state, the latest-ODT installer processes were stopped with:
+
+```bash
+PREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10/pfx \
+LOG_DIR=/home/mars-user/office-open-repro/logs-latest-odt-current32-win10 \
+scripts/office-latest-experiment.sh kill
+```
+
+Then the installed `EXCEL.EXE` was launched directly:
+
+```bash
+PREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10/pfx \
+LOG_DIR=/home/mars-user/office-open-repro/logs-latest-odt-current32-win10 \
+scripts/office-latest-experiment.sh launch-excel-log
+```
+
+Result:
+
+- Excel briefly starts and then crashes before showing a workbook window.
+- Screenshot after crash:
+  `public/latest-odt-current32-win10-excel-launch-crash.png`
+- Captured launch log:
+  `logs/latest-odt-current32-excel-launch-after-30015.log`
+
+Notable launch evidence:
+
+```text
+RoGetActivationFactory Failed to find library for
+  Windows.ApplicationModel.Core.CoreApplication
+  Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager
+  Windows.System.Profile.RetailInfo
+
+NetGetAadJoinInformation: stub
+NetGetJoinInformation: semi-stub
+wine: Unhandled exception 0xc06d007f in thread 24
+```
+
+Interpretation:
+
+The current build now has two separate late-stage blockers:
+
+1. Install integration fails when `integrator.exe` performs license installation, raising `0xc0000005`.
+2. Direct Excel launch fails shortly afterward with `0xc06d007f`, near missing WinRT/auth/profile activation factories and Azure AD join stubs.
+
+This suggests the next useful work is either a targeted Wine patch/stub for the modern auth/profile/WinRT surface, or a stepwise Office build search to find the newest build before these integration/auth dependencies became launch-blocking.

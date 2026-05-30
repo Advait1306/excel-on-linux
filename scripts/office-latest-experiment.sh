@@ -54,6 +54,7 @@ Usage:
   office-latest-experiment.sh run-officesetup
   office-latest-experiment.sh run-latest-odt
   office-latest-experiment.sh launch-excel
+  office-latest-experiment.sh launch-excel-log
   office-latest-experiment.sh tasklist
   office-latest-experiment.sh kill
 
@@ -114,6 +115,12 @@ EOF
     ;;
   launch-excel)
     run_wine "C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
+    ;;
+  launch-excel-log)
+    ensure_log_dir
+    echo "Launching Excel"
+    echo "Log: $LOG_DIR/excel-launch.log"
+    run_wine "C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\EXCEL.EXE" >"$LOG_DIR/excel-launch.log" 2>&1
     ;;
   tasklist)
     run_wine tasklist
