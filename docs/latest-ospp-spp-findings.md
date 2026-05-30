@@ -126,3 +126,63 @@ Do not implement the final auth response from this partial blob. The next clean
 step is to capture the full `SLSetAuthenticationData` payload again in a
 disposable restored/builtin-SPP test prefix, then feed those bytes to native
 OSPP with a small probe to observe the real `SLGetAuthenticationResult` output.
+
+## Auth Challenge Capture
+
+Checkpoint: 2026-05-30 21:23 UTC
+
+Disposable prefix:
+
+```text
+/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx
+```
+
+Capture command:
+
+```bash
+timeout 45s env WINEDEBUG=fixme+slc \
+  PREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx \
+  LOG_DIR=/home/mars-user/office-open-repro/logs-latest-authprobe \
+  /home/mars-user/excel-on-linux/scripts/office-latest-experiment.sh launch-excel-log
+```
+
+Captured full 288-byte `SLSetAuthenticationData` payload:
+
+```text
+0000: 20 01 00 00 01 00 00 00 00 00 01 00 0c 01 00 00 01 02 00 00 10 66 00 00 00 a4 00 00 08 31 ea e6
+0020: e3 fd 70 05 4e c7 07 25 01 62 24 c4 66 91 3a 84 49 47 b8 4c c6 43 0b 0d f5 84 95 a0 bc 1d 2c bc
+0040: 8c 04 0c 1f 64 09 1b 11 06 db 58 fe 18 5b 41 38 0d 6e 16 7e ba ab f1 5f ee 2b 7b 76 ea 88 fd ae
+0060: c4 bf ba 21 eb b8 60 6d 1f f3 53 67 3b 93 ff b2 c5 92 73 79 b3 79 1d 80 55 cf 5d 9b fd d9 93 58
+0080: 3d 51 81 f6 d7 f5 e8 74 77 5e fe b3 6b 4a a1 15 c6 39 8b b3 8a 33 ad 58 c5 9a ee c1 77 62 1a f1
+00a0: f4 e6 86 52 fc a9 20 89 cd 7a 46 58 02 16 3c c8 ee c9 33 45 21 f2 04 38 5a cc 41 46 bf 44 f9 a3
+00c0: bc be 35 94 3e 49 d2 18 f6 88 8d 26 cf fc 5e 15 28 8a 1c b7 f1 64 de c0 d8 c4 48 40 fc 0d 27 2c
+00e0: ae 96 7f b7 80 e5 42 87 df e3 d0 ab 30 6a bd 55 5c 9c 56 df 3f 8b ec 33 b2 54 63 94 65 29 08 0d
+0100: 4a 15 55 2a 26 f3 f1 00 68 ec 98 ae e0 a1 42 e2 0e 0d 6f ac 91 08 d8 5f c2 c9 25 86 55 00 41 00
+```
+
+Native result probe:
+
+```bash
+i686-w64-mingw32-gcc -Wall -Wextra -O2 \
+  -o tools/sppc-auth-probe32.exe tools/sppc-auth-probe.c
+
+WINEPREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx \
+WINEARCH=win64 \
+PATH=/home/mars-user/office-open-repro/valve-wine-ge10-install/bin:$PATH \
+LD_LIBRARY_PATH=/home/mars-user/office-open-repro/valve-wine-ge10-install/lib:/home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine \
+/home/mars-user/office-open-repro/valve-wine-ge10-install/bin/wine \
+  /home/mars-user/excel-on-linux/tools/sppc-auth-probe32.exe
+```
+
+Observed native probe result:
+
+```text
+challenge_size=288
+SLOpen hr=0xc0020012 handle=00000000
+err:rpc:RpcAssoc_BindConnection syntax {9435cc56-1d9c-4924-ac7d-b60a2c3520e1}, 1.0 not supported
+```
+
+That means standalone native OSPPC wants the OSPP RPC service protocol, and
+Wine does not support that RPC interface yet. A diagnostic Wine patch that made
+`SLOpen` return `0xc0020012` still hit Excel repair `702061`, so the current
+fix is not simply copying native's standalone failure code.
