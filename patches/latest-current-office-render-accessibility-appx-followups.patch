@@ -1436,10 +1436,10 @@ index 2deacc1cb1..3335a74c74 100644
          decodeFunc = CRYPT_AsnDecodeCRLDistPoints;
      else if (!strcmp(lpszStructType, szOID_CERT_POLICIES))
 diff --git a/dlls/sppc/sppc.c b/dlls/sppc/sppc.c
-index 8819961d7c..2b42ed1d86 100644
+index 8819961d7c..e41eecd0d5 100644
 --- a/dlls/sppc/sppc.c
 +++ b/dlls/sppc/sppc.c
-@@ -31,12 +31,366 @@
+@@ -31,12 +31,418 @@
  
  WINE_DEFAULT_DEBUG_CHANNEL(slc);
  
@@ -1561,11 +1561,52 @@ index 8819961d7c..2b42ed1d86 100644
 +        !wcscmp(name, L"office-Activatable") ||
 +        !wcscmp(name, L"office-DisplayEULA") ||
 +        !wcscmp(name, L"office-AppPrivilege.OneNotePro") ||
++        !wcscmp(name, L"office-AppPrivilege.licensing_unknownEnabled") ||
 +        !wcscmp(name, L"office-AppPrivilege.licensing_isPaid") ||
 +        !wcscmp(name, L"office-AppPrivilege.licensing_isSubscription") ||
++        !wcscmp(name, L"office-AppPrivilege.cxe_whatsnewdialog") ||
++        !wcscmp(name, L"office-AppPrivilege.otel_featureGateSubscriptionAudience") ||
++        !wcscmp(name, L"office-AppPrivilege.gfx_donateToScience") ||
 +        !wcscmp(name, L"office-AppPrivilege.licensing_runOnNonCloud"))
 +    {
 +        *value = 1;
++        return TRUE;
++    }
++    if (!wcscmp(name, L"office-EulaID"))
++    {
++        *value = 18;
++        return TRUE;
++    }
++    if (!wcscmp(name, L"office-DisallowPhone"))
++    {
++        *value = 1;
++        return TRUE;
++    }
++    if (!wcscmp(name, L"office-MPC"))
++    {
++        *value = 2244;
++        return TRUE;
++    }
++    if (!wcscmp(name, L"Security-SPP-CMIDExpirationPeriod") ||
++        !wcscmp(name, L"Security-Licensing-SLC-CMIDExpirationPeriod"))
++    {
++        *value = 43200;
++        return TRUE;
++    }
++    if (!wcscmp(name, L"Security-SPP-Reserved-EnableNotificationMode") ||
++        !wcscmp(name, L"Security-SPP-ActivationResetCount"))
++    {
++        *value = 1;
++        return TRUE;
++    }
++    if (!wcscmp(name, L"Security-SPP-ActivationResetCountMax"))
++    {
++        *value = 0x7fffffff;
++        return TRUE;
++    }
++    if (!wcsncmp(name, L"office-AppPrivilege.", lstrlenW(L"office-AppPrivilege.")))
++    {
++        *value = 0;
 +        return TRUE;
 +    }
 +    return FALSE;
@@ -1575,6 +1616,7 @@ index 8819961d7c..2b42ed1d86 100644
                                                 LPCWSTR name, UINT *count, SL_LICENSING_STATUS **status)
  {
 +    SL_LICENSING_STATUS *entry;
++    WCHAR env[4];
 +
      FIXME("(%p %p %p %s %p %p) stub\n", handle, app, product, debugstr_w(name), count, status );
  
@@ -1597,9 +1639,19 @@ index 8819961d7c..2b42ed1d86 100644
 +        LocalFree(entry);
 +        return SL_E_RIGHT_NOT_CONSUMED;
 +    }
-+    entry->eStatus = SL_LICENSING_STATUS_IN_GRACE_PERIOD;
-+    entry->dwGraceTime = 30 * 24 * 60;
-+    entry->dwTotalGraceDays = 30;
++    if (GetEnvironmentVariableW(L"OFFICE_SPP_LICENSED_STATUS", env, ARRAY_SIZE(env)))
++    {
++        entry->eStatus = SL_LICENSING_STATUS_LICENSED;
++        entry->dwGraceTime = 0;
++        entry->dwTotalGraceDays = 0;
++        FIXME("returning diagnostic licensed status.\n");
++    }
++    else
++    {
++        entry->eStatus = SL_LICENSING_STATUS_IN_GRACE_PERIOD;
++        entry->dwGraceTime = 30 * 24 * 60;
++        entry->dwTotalGraceDays = 30;
++    }
 +    entry->hrReason = S_OK;
 +
 +    *count = 1;
