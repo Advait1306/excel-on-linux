@@ -558,3 +558,94 @@ SLGetPolicyInformation("office-ParentCode")
 SLGetAuthenticationResult
 SLGetLicensingStatusInformation
 ```
+
+## Policy Probe Comparison
+
+Checkpoint: 2026-05-30 22:56 UTC
+
+Added a small probe:
+
+```text
+tools/sppc-policy-probe.c
+```
+
+Built locally as:
+
+```bash
+i686-w64-mingw32-gcc -Wall -O2 \
+  -o /home/mars-user/excel-on-linux/tools/sppc-policy-probe32.exe \
+  /home/mars-user/excel-on-linux/tools/sppc-policy-probe.c
+```
+
+The probe calls the public SPP sequence seen immediately before Excel repair:
+
+```text
+SLOpen
+SLSetAuthenticationData
+SLConsumeRight
+SLGetPolicyInformation("*")
+SLLoadApplicationPolicies
+SLGetApplicationPolicy("*")
+SLGetPolicyInformation("office-C845E028-E091-442E-8202-21F596C559A0")
+SLGetAuthenticationResult
+SLGetPolicyInformation("office-ParentCode")
+SLGetAuthenticationResult
+SLGetLicensingStatusInformation
+```
+
+Native OSPP output:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/sppc-policy-probe-native.log
+```
+
+Relevant native values:
+
+```text
+SLConsumeRight hr=0xc004d301
+SLGetPolicyInformation(*) hr=0xc004f013 type=0 size=0
+SLLoadApplicationPolicies hr=0xc004f072 context=00000000
+SLGetPolicyInformation(office-C845E028-E091-442E-8202-21F596C559A0) hr=0xc004f013 type=0 size=0
+SLGetAuthenticationResult#1 hr=0xc004f07a type=3 size=0
+SLGetPolicyInformation(office-ParentCode) hr=0xc004f013 type=0 size=0
+SLGetAuthenticationResult#2 hr=0xc004f07a type=3 size=0
+SLGetLicensingStatusInformation hr=0x00000000 count=16 status=0 grace=0 reason=0xc004f014
+```
+
+Builtin before this test was materially different: it granted `SLConsumeRight`,
+returned a non-empty policy list, returned concrete Office policy values, and
+reported grace-period licensing status.
+
+Added opt-in `OFFICE_SPP_NATIVE_POLICY_ERRORS=1` so builtin `sppc` mirrors the
+native values above. Probe log:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/sppc-policy-probe-builtin-native-policy-errors.log
+```
+
+Then launched latest Excel in the disposable authprobe prefix with:
+
+```text
+OFFICE_SPP_NATIVE_POLICY_ERRORS=1
+sppc=builtin
+```
+
+Log:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/excel-launch-builtin-native-policy-errors.log
+```
+
+Result: latest Excel still emits repair `702061`:
+
+```text
+SLConsumeRight returning native OSPP-compatible consume-right failure.
+SLGetLicensingStatusInformation returning native OSPP-compatible unlicensed status list.
+ReportEventW event string[2]: "702061"
+```
+
+Conclusion: matching this sampled public SPP sequence is still insufficient.
+Native OSPP must be affecting additional state or answering additional calls
+that the current probe does not cover. The next useful direction is to expand
+coverage to more native OSPPC exports or trace in-process calls/side effects,
+rather than further tweaking these already matched public results.

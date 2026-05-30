@@ -1961,10 +1961,10 @@ index 12f4ff6441..de4f1f3f99 100644
  @ stub EventAccessControl
  @ stub EventAccessQuery
 diff --git a/dlls/sppc/sppc.c b/dlls/sppc/sppc.c
-index 8819961d7c..16642fdffe 100644
+index 8819961d7c..9d8e64352b 100644
 --- a/dlls/sppc/sppc.c
 +++ b/dlls/sppc/sppc.c
-@@ -31,21 +31,478 @@
+@@ -31,21 +31,536 @@
  
  WINE_DEFAULT_DEBUG_CHANNEL(slc);
  
@@ -1976,6 +1976,17 @@ index 8819961d7c..16642fdffe 100644
 +static UINT last_authentication_data_size;
 +static const BYTE office_subscription_validator_result[] = { 0x0c, 0x00, 0x00, 0x00, 0x01, 0x00,
 +                                                             0x00, 0x00, 0x03, 0x00, 0x00, 0x00 };
++
++#define OFFICE_E_LICENSE_SERVICE_FAILURE 0xc004d301
++#define OFFICE_E_LICENSE_NOT_INSTALLED   0xc004f014
++#define OFFICE_E_POLICY_LOAD_FAILED      0xc004f072
++
++static BOOL use_native_policy_errors(void)
++{
++    WCHAR env[4];
++
++    return !!GetEnvironmentVariableW(L"OFFICE_SPP_NATIVE_POLICY_ERRORS", env, ARRAY_SIZE(env));
++}
 +
 +static const WCHAR *office_policy_names[] =
 +{
@@ -2164,6 +2175,20 @@ index 8819961d7c..16642fdffe 100644
 +    if (!handle || name || !count || !status)
 +        return E_INVALIDARG;
 +
++    if (use_native_policy_errors())
++    {
++        entry = LocalAlloc(LPTR, 16 * sizeof(*entry));
++        if (!entry)
++            return E_OUTOFMEMORY;
++
++        entry[0].eStatus = SL_LICENSING_STATUS_UNLICENSED;
++        entry[0].hrReason = OFFICE_E_LICENSE_NOT_INSTALLED;
++        *count = 16;
++        *status = entry;
++        FIXME("returning native OSPP-compatible unlicensed status list.\n");
++        return S_OK;
++    }
++
 +    entry = LocalAlloc(LPTR, sizeof(*entry));
 +    if (!entry)
 +        return E_OUTOFMEMORY;
@@ -2301,6 +2326,12 @@ index 8819961d7c..16642fdffe 100644
 +    if (!handle || !app || reserved)
 +        return E_INVALIDARG;
 +
++    if (use_native_policy_errors())
++    {
++        FIXME("returning native OSPP-compatible consume-right failure.\n");
++        return OFFICE_E_LICENSE_SERVICE_FAILURE;
++    }
++
 +    last_consumed_right = product ? *product : *app;
 +    has_consumed_right = TRUE;
 +    return S_OK;
@@ -2317,6 +2348,16 @@ index 8819961d7c..16642fdffe 100644
 +
 +    if (!handle || !name || !size || !data)
 +        return E_INVALIDARG;
++
++    if (use_native_policy_errors())
++    {
++        if (type)
++            *type = SL_DATA_NONE;
++        *size = 0;
++        *data = NULL;
++        FIXME("returning native OSPP-compatible policy failure for %s.\n", debugstr_w(name));
++        return SL_E_RIGHT_NOT_GRANTED;
++    }
 +
 +    if (!wcscmp(name, L"*"))
 +    {
@@ -2369,6 +2410,13 @@ index 8819961d7c..16642fdffe 100644
 +    if (!app || !context)
 +        return E_INVALIDARG;
 +
++    if (use_native_policy_errors())
++    {
++        *context = NULL;
++        FIXME("returning native OSPP-compatible application-policy load failure.\n");
++        return OFFICE_E_POLICY_LOAD_FAILED;
++    }
++
 +    *context = (HSLP)0xdeadbee1;
 +    return S_OK;
 +}
@@ -2384,6 +2432,16 @@ index 8819961d7c..16642fdffe 100644
 +
 +    if (!context || !name || !size || !data)
 +        return E_INVALIDARG;
++
++    if (use_native_policy_errors())
++    {
++        if (type)
++            *type = SL_DATA_NONE;
++        *size = 0;
++        *data = NULL;
++        FIXME("returning native OSPP-compatible application-policy failure for %s.\n", debugstr_w(name));
++        return SL_E_RIGHT_NOT_GRANTED;
++    }
 +
 +    if (!wcscmp(name, L"*"))
 +    {
