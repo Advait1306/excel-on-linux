@@ -1436,7 +1436,7 @@ index 2deacc1cb1..3335a74c74 100644
          decodeFunc = CRYPT_AsnDecodeCRLDistPoints;
      else if (!strcmp(lpszStructType, szOID_CERT_POLICIES))
 diff --git a/dlls/kernel32/kernel32.spec b/dlls/kernel32/kernel32.spec
-index 4634363505..f1b62f69dd 100644
+index 4634363505..8bd716e538 100644
 --- a/dlls/kernel32/kernel32.spec
 +++ b/dlls/kernel32/kernel32.spec
 @@ -505,13 +505,14 @@
@@ -1455,7 +1455,15 @@ index 4634363505..f1b62f69dd 100644
  @ stdcall -import FindNLSString(long long wstr long wstr long ptr)
  @ stdcall -import FindNLSStringEx(wstr long wstr long wstr long ptr ptr ptr long)
  @ stdcall FindResourceA(long str str)
-@@ -1444,7 +1445,7 @@
+@@ -1143,6 +1144,7 @@
+ # @ stub NotifyMountMgr
+ @ stub NotifyNLSUserCache
+ # @ stub NotifyUILanguageChange
++@ stdcall -import OOBEComplete(ptr)
+ # @ stub NumaVirtualQueryNode
+ @ stdcall OpenConsoleW(wstr long long long)
+ @ stub OpenDataFile
+@@ -1444,7 +1446,7 @@
  @ stdcall -import SetFilePointer(long long ptr long)
  @ stdcall -import SetFilePointerEx(long int64 ptr long)
  # @ stub SetFileShortNameA
@@ -1503,7 +1511,7 @@ index 605538cdc0..e19677d9b9 100644
   *	SetFileValidData   (kernelbase.@)
   */
 diff --git a/dlls/kernelbase/kernelbase.spec b/dlls/kernelbase/kernelbase.spec
-index 7a2e36f0d0..a9b7c290e5 100644
+index 7a2e36f0d0..3b138bc603 100644
 --- a/dlls/kernelbase/kernelbase.spec
 +++ b/dlls/kernelbase/kernelbase.spec
 @@ -374,11 +374,11 @@
@@ -1520,7 +1528,15 @@ index 7a2e36f0d0..a9b7c290e5 100644
  @ stdcall FindResourceExW(long wstr wstr long)
  @ stdcall FindResourceW(long wstr wstr)
  @ stdcall FindStringOrdinal(long wstr long wstr long long)
-@@ -1485,6 +1485,7 @@
+@@ -1021,6 +1021,7 @@
+ @ stdcall ObjectDeleteAuditAlarmW(wstr ptr long)
+ @ stdcall ObjectOpenAuditAlarmW(wstr ptr wstr wstr ptr long long long ptr long long ptr)
+ @ stdcall ObjectPrivilegeAuditAlarmW(wstr ptr long long ptr long)
++@ stdcall OOBEComplete(ptr)
+ # @ stub OfferVirtualMemory
+ @ stdcall OpenEventA(long long str)
+ @ stdcall OpenEventW(long long wstr)
+@@ -1485,6 +1486,7 @@
  @ stdcall SetFilePointer(long long ptr long)
  @ stdcall SetFilePointerEx(long int64 ptr long)
  @ stdcall SetFileSecurityW(wstr long ptr)
@@ -1529,7 +1545,7 @@ index 7a2e36f0d0..a9b7c290e5 100644
  @ stdcall SetFileValidData(ptr int64)
  @ stdcall SetHandleCount(long)
 diff --git a/dlls/kernelbase/version.c b/dlls/kernelbase/version.c
-index 17b414128b..b4a17104d8 100644
+index 17b414128b..a49bc092bd 100644
 --- a/dlls/kernelbase/version.c
 +++ b/dlls/kernelbase/version.c
 @@ -1811,6 +1811,27 @@ LONG WINAPI PackageFullNameFromId(const PACKAGE_ID *package_id, UINT32 *length,
@@ -1560,6 +1576,28 @@ index 17b414128b..b4a17104d8 100644
  /***********************************************************************
   *         GetPackagesByPackageFamily   (kernelbase.@)
   */
+@@ -2002,3 +2023,21 @@ done:
+     heap_free(key_name);
+     return ret;
+ }
++
++
++/***********************************************************************
++ *         OOBEComplete   (kernelbase.@)
++ */
++BOOL WINAPI OOBEComplete(BOOL *complete)
++{
++    FIXME("(%p): semi-stub\n", complete);
++
++    if (!complete)
++    {
++        SetLastError(ERROR_INVALID_PARAMETER);
++        return FALSE;
++    }
++
++    *complete = TRUE;
++    return TRUE;
++}
 diff --git a/dlls/ntdll/ntdll.spec b/dlls/ntdll/ntdll.spec
 index a2b80a4551..164a9bffec 100644
 --- a/dlls/ntdll/ntdll.spec
@@ -2344,3 +2382,15 @@ index a518de83a2..625d315885 100644
  USERENVAPI BOOL WINAPI GetUserProfileDirectoryA(HANDLE,LPSTR,LPDWORD);
  USERENVAPI BOOL WINAPI GetUserProfileDirectoryW(HANDLE,LPWSTR,LPDWORD);
  #define                GetUserProfileDirectory WINELIB_NAME_AW(GetUserProfileDirectory)
+diff --git a/include/winbase.h b/include/winbase.h
+index 9a0666efcc..fbc4d6f257 100644
+--- a/include/winbase.h
++++ b/include/winbase.h
+@@ -2266,6 +2266,7 @@ WINBASEAPI BOOL        WINAPI MoveFileWithProgressA(LPCSTR,LPCSTR,LPPROGRESS_ROU
+ WINBASEAPI BOOL        WINAPI MoveFileWithProgressW(LPCWSTR,LPCWSTR,LPPROGRESS_ROUTINE,LPVOID,DWORD);
+ #define                       MoveFileWithProgress WINELIB_NAME_AW(MoveFileWithProgress)
+ WINBASEAPI INT         WINAPI MulDiv(INT,INT,INT);
++WINBASEAPI BOOL        WINAPI OOBEComplete(BOOL*);
+ WINBASEAPI BOOL        WINAPI NeedCurrentDirectoryForExePathA(LPCSTR);
+ WINBASEAPI BOOL        WINAPI NeedCurrentDirectoryForExePathW(LPCWSTR);
+ #define                       NeedCurrentDirectoryForExePath WINELIB_NAME_AW(NeedCurrentDirectoryForExePath)
