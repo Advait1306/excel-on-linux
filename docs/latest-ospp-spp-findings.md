@@ -274,3 +274,67 @@ The next useful experiment is to identify what OSPPSVC's first RPC method
 expects and why it posts `0x80070002`. In the trace, native OSPP uses four
 interface methods; the probe reaches proc nums `0`, `1`, and `2`, while the
 service unregisters immediately after handling the first request.
+
+## OSPP Event Stack
+
+Checkpoint: 2026-05-30 21:58 UTC
+
+Added a targeted `advapi32.ReportEventW` stack trace for the OSPPSVC event:
+
+```text
+dwEventID=0xc00003e9
+event string[0]=0x80070002
+event string[1]=15.0.169.500
+```
+
+Build/copy command:
+
+```bash
+make -C /home/mars-user/office-open-repro/build/valve-wine-ge10-office-x64 \
+  dlls/advapi32/x86_64-windows/advapi32.dll
+cp /home/mars-user/office-open-repro/build/valve-wine-ge10-office-x64/dlls/advapi32/x86_64-windows/advapi32.dll \
+  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/x86_64-windows/advapi32.dll
+```
+
+Probe command:
+
+```bash
+timeout 30s env WINEDEBUG=fixme+advapi \
+  WINEPREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx \
+  WINEARCH=win64 \
+  PATH=/home/mars-user/office-open-repro/valve-wine-ge10-install/bin:$PATH \
+  LD_LIBRARY_PATH=/home/mars-user/office-open-repro/valve-wine-ge10-install/lib:/home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine \
+  /home/mars-user/office-open-repro/valve-wine-ge10-install/bin/wine \
+    /home/mars-user/excel-on-linux/tools/sppc-auth-probe32.exe \
+  > /home/mars-user/office-open-repro/logs-latest-authprobe/sppc-auth-probe-ospp-event-stack.log 2>&1
+```
+
+Observed:
+
+```text
+ReportEventW tracing Office Software Protection Platform 0x80070002 event stack.
+ReportEventW ospp event stack hash 0xfdbd7b16, frames 11.
+frame[0] = 00006FFFFF24CD5F  advapi32.dll +0x1cd5f
+frame[1] = 00000001000A739F  OSPPSVC.EXE +0xa739f
+frame[2] = 0000000100058555  OSPPSVC.EXE +0x58555
+frame[3] = 00000001000583F2  OSPPSVC.EXE +0x583f2
+frame[4] = 000000010005AF85  OSPPSVC.EXE +0x5af85
+```
+
+`OSPPSVC.EXE` has `ImageBase=0x100000000`; the first native return address is
+immediately after a call through the import table in the OSPPSVC event-reporting
+path. This narrows the failure to native service initialization / SPP data
+startup, not the client-side 32-bit `OSPPC.DLL` load itself.
+
+In this run, `SLOpen` returned success and the next call failed:
+
+```text
+SLOpen hr=0x00000000 handle=00356d10
+SLSetAuthenticationData hr=0xc0020012
+```
+
+That is a useful correction to the earlier standalone probe result: the service
+can come up far enough to open a handle, but it posts `0x80070002` and later
+RPC calls fault with `0x1c010003` / `0xc0020012`. Next target: trace the first
+server-side OSPP proc after `SLOpen` with enough parameter detail to understand
+what SPP data or service state is missing.
