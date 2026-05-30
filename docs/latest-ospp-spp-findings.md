@@ -338,3 +338,47 @@ can come up far enough to open a handle, but it posts `0x80070002` and later
 RPC calls fault with `0x1c010003` / `0xc0020012`. Next target: trace the first
 server-side OSPP proc after `SLOpen` with enough parameter detail to understand
 what SPP data or service state is missing.
+
+## Post-Open RPC Trace
+
+Checkpoint: 2026-05-30 22:04 UTC
+
+Trace command:
+
+```bash
+timeout 30s env WINEDEBUG=+rpc,+ndr,fixme+advapi \
+  WINEPREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx \
+  WINEARCH=win64 \
+  PATH=/home/mars-user/office-open-repro/valve-wine-ge10-install/bin:$PATH \
+  LD_LIBRARY_PATH=/home/mars-user/office-open-repro/valve-wine-ge10-install/lib:/home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine \
+  /home/mars-user/office-open-repro/valve-wine-ge10-install/bin/wine \
+    /home/mars-user/excel-on-linux/tools/sppc-auth-probe32.exe \
+  > /home/mars-user/office-open-repro/logs-latest-authprobe/sppc-auth-probe-postopen-rpc.log 2>&1
+```
+
+Relevant sequence:
+
+```text
+RpcServerRegisterIf3 interface id: {9435cc56-1d9c-4924-ac7d-b60a2c3520e1} 1.0
+NdrpClientCall2 proc num: 0
+process_bind_packet_no_send accepting bind request ... {9435cc56...}
+ReportEventW ... 0xc00003e9 ... "0x80070002" / "15.0.169.500"
+NdrStubCall2 version 0x60001 ... stack size 18, format 000000010003FC4C
+RpcServerUnregisterIf ... ({9435cc56-1d9c-4924-ac7d-b60a2c3520e1})
+SLOpen hr=0x00000000 handle=00356d18
+NdrpClientCall2 proc num: 2
+process_request_packet interface {9435cc56...} no longer registered
+SLSetAuthenticationData hr=0xc0020012
+NdrpClientCall2 proc num: 1
+process_request_packet interface {9435cc56...} no longer registered
+```
+
+Interpretation: OSPPC proc `0` is the open path. It returns a valid handle even
+after OSPPSVC logs `0x80070002`, but the service unregisters the OSPP interface
+before proc `2` (`SLSetAuthenticationData`) and proc `1`
+(`SLGetAuthenticationResult`/close-path in the probe sequence) can complete.
+
+This makes the next implementation target narrower: either prevent the native
+service from tearing down by satisfying its startup data expectation, or stop
+depending on native OSPP and implement enough of proc `0/2/1` behavior in
+Wine's builtin `sppc` for Excel's auth challenge.
