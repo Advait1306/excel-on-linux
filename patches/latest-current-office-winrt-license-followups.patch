@@ -1,0 +1,284 @@
+diff --git a/dlls/sppc/sppc.c b/dlls/sppc/sppc.c
+index 8819961d7c..2236ddce87 100644
+--- a/dlls/sppc/sppc.c
++++ b/dlls/sppc/sppc.c
+@@ -31,12 +31,143 @@
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(slc);
+ 
++typedef PVOID HSLP;
++
+ HRESULT WINAPI SLGetLicensingStatusInformation(HSLC handle, const SLID *app, const SLID *product,
+                                                LPCWSTR name, UINT *count, SL_LICENSING_STATUS **status)
+ {
++    SL_LICENSING_STATUS *entry;
++
+     FIXME("(%p %p %p %s %p %p) stub\n", handle, app, product, debugstr_w(name), count, status );
+ 
+-    return SL_E_RIGHT_NOT_CONSUMED;
++    if (!handle || name || !count || !status)
++        return E_INVALIDARG;
++
++    entry = LocalAlloc(LPTR, sizeof(*entry));
++    if (!entry)
++        return E_OUTOFMEMORY;
++
++    if (product)
++        entry->SkuId = *product;
++    else if (app)
++        entry->SkuId = *app;
++    entry->eStatus = SL_LICENSING_STATUS_IN_GRACE_PERIOD;
++    entry->dwGraceTime = 30 * 24 * 60;
++    entry->dwTotalGraceDays = 30;
++    entry->hrReason = S_OK;
++
++    *count = 1;
++    *status = entry;
++    return S_OK;
++}
++
++HRESULT WINAPI SLGetSLIDList(HSLC handle, UINT query_type, const SLID *query,
++                             UINT return_type, UINT *count, SLID **data)
++{
++    FIXME("(%p %u %s %u %p %p) stub\n", handle, query_type, wine_dbgstr_guid(query),
++          return_type, count, data);
++
++    if (!count || !data)
++        return E_INVALIDARG;
++
++    *count = 0;
++    *data = NULL;
++    return S_OK;
++}
++
++HRESULT WINAPI SLInstallLicense(HSLC handle, UINT size, const BYTE *data, SLID *file)
++{
++    FIXME("(%p %u %p %p) stub\n", handle, size, data, file);
++
++    if (!handle || !size || !data || !file)
++        return E_INVALIDARG;
++
++    memset(file, 0, sizeof(*file));
++    return S_OK;
++}
++
++HRESULT WINAPI SLSetAuthenticationData(HSLC handle, UINT size, const BYTE *data)
++{
++    FIXME("(%p %u %p) stub\n", handle, size, data);
++
++    if (!handle)
++        return E_INVALIDARG;
++
++    return S_OK;
++}
++
++HRESULT WINAPI SLConsumeRight(HSLC handle, const SLID *app, const SLID *product,
++                              const WCHAR *right_name, void *reserved)
++{
++    FIXME("(%p %s %s %s %p) stub\n", handle, wine_dbgstr_guid(app),
++          wine_dbgstr_guid(product), debugstr_w(right_name), reserved);
++
++    if (!handle || !app || reserved)
++        return E_INVALIDARG;
++
++    return S_OK;
++}
++
++HRESULT WINAPI SLGetPolicyInformation(HSLC handle, const WCHAR *name, SLDATATYPE *type,
++                                      UINT *size, BYTE **data)
++{
++    FIXME("(%p %s %p %p %p) stub\n", handle, debugstr_w(name), type, size, data);
++
++    if (!handle || !name || !size || !data)
++        return E_INVALIDARG;
++
++    if (type)
++        *type = SL_DATA_NONE;
++    *size = 0;
++    *data = NULL;
++    return SL_E_VALUE_NOT_FOUND;
++}
++
++HRESULT WINAPI SLGetPolicyInformationDWORD(HSLC handle, const WCHAR *name, DWORD *value)
++{
++    FIXME("(%p %s %p) stub\n", handle, debugstr_w(name), value);
++
++    if (!handle || !name || !value)
++        return E_INVALIDARG;
++
++    *value = 0;
++    return SL_E_VALUE_NOT_FOUND;
++}
++
++HRESULT WINAPI SLLoadApplicationPolicies(const SLID *app, const SLID *product, DWORD flags, HSLP *context)
++{
++    FIXME("(%s %s %lx %p) stub\n", wine_dbgstr_guid(app), wine_dbgstr_guid(product), flags, context);
++
++    if (!app || !context)
++        return E_INVALIDARG;
++
++    *context = (HSLP)0xdeadbee1;
++    return S_OK;
++}
++
++HRESULT WINAPI SLGetApplicationPolicy(HSLP context, const WCHAR *name, SLDATATYPE *type,
++                                      UINT *size, BYTE **data)
++{
++    FIXME("(%p %s %p %p %p) stub\n", context, debugstr_w(name), type, size, data);
++
++    if (!context || !name || !size || !data)
++        return E_INVALIDARG;
++
++    if (type)
++        *type = SL_DATA_NONE;
++    *size = 0;
++    *data = NULL;
++    return SL_E_VALUE_NOT_FOUND;
++}
++
++HRESULT WINAPI SLUnloadApplicationPolicies(HSLP context, DWORD flags)
++{
++    FIXME("(%p %lx) stub\n", context, flags);
++
++    if (!context)
++        return E_INVALIDARG;
++
++    return S_OK;
+ }
+ 
+ HRESULT WINAPI SLOpen(HSLC *handle)
+diff --git a/dlls/windows.globalization/main.c b/dlls/windows.globalization/main.c
+index 37746ae8d5..c20a044c86 100644
+--- a/dlls/windows.globalization/main.c
++++ b/dlls/windows.globalization/main.c
+@@ -399,6 +399,7 @@ struct language_factory
+ {
+     IActivationFactory IActivationFactory_iface;
+     ILanguageFactory ILanguageFactory_iface;
++    ILanguageStatics ILanguageStatics_iface;
+     LONG ref;
+ };
+ 
+@@ -429,6 +430,11 @@ static inline struct language_factory *impl_from_ILanguageFactory(ILanguageFacto
+     return CONTAINING_RECORD(iface, struct language_factory, ILanguageFactory_iface);
+ }
+ 
++static inline struct language_factory *impl_from_ILanguageStatics(ILanguageStatics *iface)
++{
++    return CONTAINING_RECORD(iface, struct language_factory, ILanguageStatics_iface);
++}
++
+ static inline struct language *impl_from_ILanguage(ILanguage *iface)
+ {
+     return CONTAINING_RECORD(iface, struct language, ILanguage_iface);
+@@ -786,6 +792,13 @@ static HRESULT STDMETHODCALLTYPE windows_globalization_language_factory_QueryInt
+         return S_OK;
+     }
+ 
++    if (IsEqualGUID(iid, &IID_ILanguageStatics))
++    {
++        IUnknown_AddRef(iface);
++        *out = &factory->ILanguageStatics_iface;
++        return S_OK;
++    }
++
+     FIXME("%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid(iid));
+     *out = NULL;
+     return E_NOINTERFACE;
+@@ -895,10 +908,96 @@ static const struct ILanguageFactoryVtbl language_factory_vtbl =
+     language_factory_CreateLanguage,
+ };
+ 
++static HRESULT STDMETHODCALLTYPE language_statics_QueryInterface(
++        ILanguageStatics *iface, REFIID iid, void **object)
++{
++    struct language_factory *factory = impl_from_ILanguageStatics(iface);
++    return IActivationFactory_QueryInterface(&factory->IActivationFactory_iface, iid, object);
++}
++
++static ULONG STDMETHODCALLTYPE language_statics_AddRef(
++        ILanguageStatics *iface)
++{
++    struct language_factory *factory = impl_from_ILanguageStatics(iface);
++    return IActivationFactory_AddRef(&factory->IActivationFactory_iface);
++}
++
++static ULONG STDMETHODCALLTYPE language_statics_Release(
++        ILanguageStatics *iface)
++{
++    struct language_factory *factory = impl_from_ILanguageStatics(iface);
++    return IActivationFactory_Release(&factory->IActivationFactory_iface);
++}
++
++static HRESULT STDMETHODCALLTYPE language_statics_GetIids(
++        ILanguageStatics *iface, ULONG *iid_count, IID **iids)
++{
++    FIXME("iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids);
++    if (iid_count) *iid_count = 0;
++    if (iids) *iids = NULL;
++    return S_OK;
++}
++
++static HRESULT STDMETHODCALLTYPE language_statics_GetRuntimeClassName(
++        ILanguageStatics *iface, HSTRING *class_name)
++{
++    static const WCHAR class_nameW[] = L"Windows.Globalization.Language";
++    TRACE("iface %p, class_name %p.\n", iface, class_name);
++    return WindowsCreateString(class_nameW, wcslen(class_nameW), class_name);
++}
++
++static HRESULT STDMETHODCALLTYPE language_statics_GetTrustLevel(
++        ILanguageStatics *iface, TrustLevel *trust_level)
++{
++    TRACE("iface %p, trust_level %p.\n", iface, trust_level);
++    if (trust_level) *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT STDMETHODCALLTYPE language_statics_IsWellFormed(
++        ILanguageStatics *iface, HSTRING tag, boolean *result)
++{
++    const WCHAR *name = WindowsGetStringRawBuffer(tag, NULL);
++    WCHAR buffer[LOCALE_NAME_MAX_LENGTH];
++
++    TRACE("iface %p, tag %s, result %p.\n", iface, debugstr_hstring(tag), result);
++
++    if (result) *result = !!GetLocaleInfoEx(name, LOCALE_SNAME, buffer, ARRAY_SIZE(buffer));
++    return S_OK;
++}
++
++static HRESULT STDMETHODCALLTYPE language_statics_get_CurrentInputMethodLanguageTag(
++        ILanguageStatics *iface, HSTRING *value)
++{
++    WCHAR locale[LOCALE_NAME_MAX_LENGTH];
++
++    TRACE("iface %p, value %p.\n", iface, value);
++
++    if (!GetUserDefaultLocaleName(locale, LOCALE_NAME_MAX_LENGTH))
++        return E_FAIL;
++
++    return WindowsCreateString(locale, wcslen(locale), value);
++}
++
++static const struct ILanguageStaticsVtbl language_statics_vtbl =
++{
++    language_statics_QueryInterface,
++    language_statics_AddRef,
++    language_statics_Release,
++    /* IInspectable methods */
++    language_statics_GetIids,
++    language_statics_GetRuntimeClassName,
++    language_statics_GetTrustLevel,
++    /* ILanguageStatics methods */
++    language_statics_IsWellFormed,
++    language_statics_get_CurrentInputMethodLanguageTag,
++};
++
+ static struct language_factory language_factory =
+ {
+     {&activation_factory_language_vtbl},
+     {&language_factory_vtbl},
++    {&language_statics_vtbl},
+     0
+ };
+ 

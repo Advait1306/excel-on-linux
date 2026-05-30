@@ -112,3 +112,52 @@
 2026-05-30 08:28 UTC - Captured current ODT failure evidence: C2R reached 78%, then `integrator.exe /I /License PRIDName=O365HomePremRetail.16 ...` crashed with `0xc0000005` (`3221225477`) during license integration; installer dialog reports `30015-11 (3221225477)`. Screenshot copied to repo as `public/latest-odt-current32-win10-error-78.png`.
 2026-05-30 08:40 UTC - Stopped the disposable latest-ODT installer processes and tried direct launch from the installed `EXCEL.EXE`. Excel starts then crashes before workbook UI with Wine `Unhandled exception 0xc06d007f`; launch log shows missing WinRT activation factories for `Windows.ApplicationModel.Core.CoreApplication`, `Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager`, and `Windows.System.Profile.RetailInfo`, plus `NetGetAadJoinInformation`/`NetGetJoinInformation` stubs. Copied screenshot and launch log into repo.
 2026-05-30 08:49 UTC - Added stepwise ODT version-search plan and pinned SemiAnnual Excel-only XML configs for `16.0.16731.21114` (2308), `16.0.17928.20776` (2408), and `16.0.19127.20648` (2508). Next candidate should use a fresh disposable prefix, likely starting at SemiAnnual 2308 to bracket the newest launchable build.
+2026-05-30 08:58 UTC - Steering correction: stop version-search work for now and focus on fixing latest Current itself. Found current `Integrator.exe` at `C:\Program Files (x86)\Microsoft Office\root\Integration\Integrator.exe` (4,310,360 bytes). Next step is to reproduce `Integrator.exe /I /License ...` in the failed current prefix with focused Wine crash logging.
+2026-05-30 09:06 UTC - Focused current Integrator repro shows the first failure is not a missing license XML. `c2rpridslicensefiles_auto.xml` opens successfully, then `Integrator.exe` tries to load `sppc.dll`; our inherited override has `sppc=disable`, so Wine refuses the built-in `syswow64/sppc.dll` with `c0000135`, causing first exception `0xc06d007e` and then secondary `0xc0000005`. Next test: set `sppc=builtin` only in the disposable latest prefix and rerun the same integrator command.
+2026-05-30 09:21 UTC - Latest Integrator crash is fixed in standalone repro. Setting current prefix `sppc=builtin` moved the crash to Wine's unimplemented `sppc.dll.SLInstallLicense`; patched GE Wine `dlls/sppc` with non-aborting `SLInstallLicense` and `SLGetSLIDList` stubs, rebuilt/installed both i386+x86_64 `sppc.dll`, refreshed the disposable prefix copies, and reran `Integrator.exe /I /License ...`; exit code is now 0 with no unhandled exception. Next: launch latest Excel again and rerun ODT completion if needed.
+2026-05-30 09:55 UTC - Latest ODT rerun exposed next finalization crash: `OfficeClickToRun.exe` page faulted after `PackageManager` QI for `{0847e909-53cd-4e4f-832e-57d180f6e447}` returned `E_NOINTERFACE`; this IID is `IPackageManager6`. Patched Wine `appxdeploymentclient` to expose a non-null stub `IPackageManager6` and added `IAgileObject` on the factory. Rebuilt/installed i386+x86_64 `appxdeploymentclient.dll`; after refresh, the page fault is gone and C2R advances to repeated `msoxmlmf.dll` load failures from `Common Files\Microsoft Shared\ClickToRun`. Materialized `msoxmlmf.dll` from Office VFS into the ClickToRun folder; next rerun should test that.
+2026-05-30 09:58 UTC - After materializing `msoxmlmf.dll`, latest/current ODT configure exits 0. No `30015`, `30088`, unhandled exception, or page fault in the final run log. Remaining noisy stubs include `StagePackageOptions` activation missing, OnlineId ticket requests, and COM marshal failures, but they did not fail setup. Next step is latest Excel launch from the completed current prefix.
+
+- 2026-05-30 10:09 UTC: Latest Excel still crashes on WinRT activation probes; patching current GE runtime, first adding minimal Windows.ApplicationModel.Core.CoreApplication factory instead of downgrading Office.
+
+- 2026-05-30 10:25 UTC: CoreApplication patch cleared first missing WinRT class. Added minimal WebAuthenticationCoreManager and RetailInfo factories, rebuilt/copied DLLs, and registered classes in latest prefix.
+
+- 2026-05-30 10:29 UTC: Latest Excel now reaches WebAuthenticationCoreManager calls; added IRetailInfoStatics shim returning IsDemoModeEnabled=false after RetailInfo QI surfaced.
+
+- 2026-05-30 10:36 UTC: Debug trace showed CoreApplication.Properties returned E_NOTIMPL and triggered first C++ exception; changed it to return an empty IPropertySet.
+
+- 2026-05-30 10:41 UTC: Latest Excel then queried CoreApplication.Properties for IMap<HSTRING,IInspectable> and crashed on null; added zero-size map implementation.
+
+- 2026-05-30 10:44 UTC: Map implementation cleared property-set null deref. Changed WebAuthenticationCoreManager probes from E_NOTIMPL to S_OK/null provider to avoid C++/WinRT startup exceptions.
+
+- 2026-05-30 10:48 UTC: Web auth S_OK/null caused null async op crash; added completed fake async operation returning null provider from GetResults.
+
+- 2026-05-30 10:53 UTC: Module trace identified missing ole32!CoRegisterActivationFilter causing c000007a wrapper; added combase/ole32 export returning S_OK and copied DLLs into latest prefix.
+
+- 2026-05-30 11:26 UTC: Latest Excel now aborts on missing KERNEL32.SetFileShortNameW; adding a kernelbase/kernel32 semi-stub in patched Wine and retesting current prefix.
+
+- 2026-05-30 11:31 UTC: SetFileShortNameW semi-stub moved Excel past previous abort; next crash is missing sppc.SLLoadApplicationPolicies, so licensing policy stubs are being added in sppc.
+
+- 2026-05-30 11:39 UTC: Latest Excel now passes sppc policy load; next crash is missing WinRT class Windows.Security.EnterpriseData.ProtectionPolicyManager. Adding a minimal EnterpriseData activation shim to the patched runtime.
+
+- 2026-05-30 11:49 UTC: Verified the safe-mode dialog was dismissed via No; latest Excel now reaches EnterpriseData shim and then aborts on missing sppc.SLSetAuthenticationData. Adding that sppc stub.
+
+- 2026-05-30 11:54 UTC: SLSetAuthenticationData stub works; latest Excel now aborts on sppc.SLConsumeRight. Adding SLConsumeRight stub returning S_OK for current startup path.
+
+- 2026-05-30 11:58 UTC: SLConsumeRight stub works; latest Excel now aborts on sppc.SLGetPolicyInformation. Adding SLGetPolicyInformation and DWORD variant returning SL_E_VALUE_NOT_FOUND.
+
+- 2026-05-30 12:03 UTC: After policy-info stubs, Excel stays alive and reaches a blank Office window/modal. Logs show DXGI/D3D shared-handle/swapchain stubs, so set Office 16.0 Graphics DisableHardwareAcceleration/DisableAnimations flags before relaunch.
+
+- 2026-05-30 12:11 UTC: Blank Excel modal opened Microsoft Office license-error help page when closed. Changing SLGetLicensingStatusInformation from hard error to S_OK with UNLICENSED status, preserving sign-in/license flow instead of faking licensed.
+
+- 2026-05-30 12:17 UTC: Office UI still blank with app alive; copied GE-Proton10-34 DXVK d3d11/dxgi/d3d10core into latest prefix and set native,builtin overrides for a rendering-path test.
+
+- 2026-05-30 12:20 UTC: DXVK test failed on this host (DXVK initialization failed, crash in dxgi). Reverted d3d11/dxgi/d3d10core to built-in Wine DLLs and builtin overrides.
+
+- 2026-05-30 12:25 UTC: Investigating persistent blank UI. Patched d2d1 rectangle CombineWithGeometry from E_NOTIMPL to a rectangle Simplify fallback, targeting Office D2D mask/layout drawing.
+
+- 2026-05-30 12:31 UTC: D2D patch restored readable safe-mode dialog but post-No path still reaches license modal. Set Office identity DisableAADWAM=1 and DisableADALatopWAMOverride=1 to avoid WAM/WebAuthenticationCoreManager shims and prefer legacy sign-in.
+
+- 2026-05-30 12:35 UTC: User-branch Office identity flags did not suppress WAM path; mirrored DisableAADWAM and DisableADALatopWAMOverride under HKCU/HKLM Policies branches for next test.
+
+- 2026-05-30 13:50 UTC: Latest/current Excel remains on the latest prefix, no older-version fallback. Added and tested a minimal `WebAccountProvider` return from `Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager`; Office reaches the shim but still opens the same blank Excel `NUIDialog`/`NetUIHWND` modal. Added `Windows.Globalization.Language` `ILanguageStatics`; this clears the `{b23cd557-0865-46d4-89b8-d59be8990f0d}` E_NOINTERFACE evidence. Changed `SLGetLicensingStatusInformation` test state from unlicensed to initial grace-period (not licensed) but UI is unchanged. New evidence screenshots: `public/latest-current-excel-after-web-provider.png`, `public/latest-current-excel-after-language-statics.png`, `public/latest-current-excel-after-sppc-grace.png`. Added `tools/dump-windows.c`; it confirms the blank modal is `class="NUIDialog"` containing only a visible `NetUIHWND` child, so this is a custom Office/NetUI rendering path rather than a normal Win32 message box with hidden text/buttons.
