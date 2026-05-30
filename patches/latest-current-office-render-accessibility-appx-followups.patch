@@ -1357,11 +1357,89 @@ index cc35ab9d7e..78b439f2e1 100644
  
  #define DEFINE_IINSPECTABLE_( pfx, iface_type, impl_type, impl_from, iface_mem, expr )             \
      static inline impl_type *impl_from( iface_type *iface )                                        \
+diff --git a/dlls/crypt32/decode.c b/dlls/crypt32/decode.c
+index 2deacc1cb1..3335a74c74 100644
+--- a/dlls/crypt32/decode.c
++++ b/dlls/crypt32/decode.c
+@@ -38,6 +38,7 @@
+ #include "windef.h"
+ #include "winbase.h"
+ #include "wincrypt.h"
++#include "wintrust.h"
+ #include "winnls.h"
+ #include "snmp.h"
+ #include "wine/debug.h"
+@@ -2882,6 +2883,46 @@ static BOOL CRYPT_AsnDecodeAlgorithmId(const BYTE *pbEncoded, DWORD cbEncoded,
+     return ret;
+ }
+ 
++static BOOL CRYPT_AsnDecodeAttributeTypeValue(const BYTE *pbEncoded, DWORD cbEncoded,
++ DWORD dwFlags, void *pvStructInfo, DWORD *pcbStructInfo, DWORD *pcbDecoded)
++{
++    CRYPT_ATTRIBUTE_TYPE_VALUE *value = pvStructInfo;
++    struct AsnDecodeSequenceItem items[] = {
++     { ASN_OBJECTIDENTIFIER, offsetof(CRYPT_ATTRIBUTE_TYPE_VALUE, pszObjId),
++       CRYPT_AsnDecodeOidIgnoreTag, sizeof(LPSTR), FALSE, TRUE,
++       offsetof(CRYPT_ATTRIBUTE_TYPE_VALUE, pszObjId), 0 },
++     { 0, offsetof(CRYPT_ATTRIBUTE_TYPE_VALUE, Value),
++       CRYPT_AsnDecodeCopyBytes, sizeof(CRYPT_OBJID_BLOB), FALSE, TRUE,
++       offsetof(CRYPT_ATTRIBUTE_TYPE_VALUE, Value.pbData), 0 },
++    };
++
++    return CRYPT_AsnDecodeSequence(items, ARRAY_SIZE(items), pbEncoded, cbEncoded,
++     dwFlags, NULL, pvStructInfo, pcbStructInfo, pcbDecoded,
++     value ? value->pszObjId : NULL);
++}
++
++static BOOL WINAPI CRYPT_AsnDecodeSpcIndirectDataContent(DWORD dwCertEncodingType,
++ LPCSTR lpszStructType, const BYTE *pbEncoded, DWORD cbEncoded, DWORD dwFlags,
++ PCRYPT_DECODE_PARA pDecodePara, void *pvStructInfo, DWORD *pcbStructInfo)
++{
++    SPC_INDIRECT_DATA_CONTENT *content = pvStructInfo;
++    struct AsnDecodeSequenceItem items[] = {
++     { ASN_SEQUENCEOF, offsetof(SPC_INDIRECT_DATA_CONTENT, Data),
++       CRYPT_AsnDecodeAttributeTypeValue, sizeof(CRYPT_ATTRIBUTE_TYPE_VALUE),
++       FALSE, TRUE, offsetof(SPC_INDIRECT_DATA_CONTENT, Data.pszObjId), 0 },
++     { ASN_SEQUENCEOF, offsetof(SPC_INDIRECT_DATA_CONTENT, DigestAlgorithm),
++       CRYPT_AsnDecodeAlgorithmId, sizeof(CRYPT_ALGORITHM_IDENTIFIER),
++       FALSE, TRUE, offsetof(SPC_INDIRECT_DATA_CONTENT, DigestAlgorithm.pszObjId), 0 },
++     { ASN_OCTETSTRING, offsetof(SPC_INDIRECT_DATA_CONTENT, Digest),
++       CRYPT_AsnDecodeOctets, sizeof(CRYPT_HASH_BLOB), FALSE, TRUE,
++       offsetof(SPC_INDIRECT_DATA_CONTENT, Digest.pbData), 0 },
++    };
++
++    return CRYPT_AsnDecodeSequence(items, ARRAY_SIZE(items), pbEncoded, cbEncoded,
++     dwFlags, pDecodePara, pvStructInfo, pcbStructInfo, NULL,
++     content ? content->Data.pszObjId : NULL);
++}
++
+ static BOOL CRYPT_AsnDecodePubKeyInfoInternal(const BYTE *pbEncoded,
+  DWORD cbEncoded, DWORD dwFlags, void *pvStructInfo, DWORD *pcbStructInfo,
+  DWORD *pcbDecoded)
+@@ -6900,6 +6941,9 @@ static CryptDecodeObjectExFunc CRYPT_GetBuiltinDecoder(DWORD dwCertEncodingType,
+         case LOWORD(OCSP_BASIC_RESPONSE):
+             decodeFunc = CRYPT_AsnDecodeOCSPBasicResponse;
+             break;
++        case LOWORD(SPC_INDIRECT_DATA_CONTENT_STRUCT):
++            decodeFunc = CRYPT_AsnDecodeSpcIndirectDataContent;
++            break;
+         default:
+             break;
+         }
+@@ -6936,6 +6980,8 @@ static CryptDecodeObjectExFunc CRYPT_GetBuiltinDecoder(DWORD dwCertEncodingType,
+         decodeFunc = CRYPT_AsnDecodeAltName;
+     else if (!strcmp(lpszStructType, szOID_SUBJECT_ALT_NAME2))
+         decodeFunc = CRYPT_AsnDecodeAltName;
++    else if (!strcmp(lpszStructType, SPC_INDIRECT_DATA_OBJID))
++        decodeFunc = CRYPT_AsnDecodeSpcIndirectDataContent;
+     else if (!strcmp(lpszStructType, szOID_CRL_DIST_POINTS))
+         decodeFunc = CRYPT_AsnDecodeCRLDistPoints;
+     else if (!strcmp(lpszStructType, szOID_CERT_POLICIES))
 diff --git a/dlls/sppc/sppc.c b/dlls/sppc/sppc.c
-index 8819961d7c..75c6448097 100644
+index 8819961d7c..2b42ed1d86 100644
 --- a/dlls/sppc/sppc.c
 +++ b/dlls/sppc/sppc.c
-@@ -31,12 +31,337 @@
+@@ -31,12 +31,366 @@
  
  WINE_DEFAULT_DEBUG_CHANNEL(slc);
  
@@ -1371,6 +1449,8 @@ index 8819961d7c..75c6448097 100644
 +static BOOL has_consumed_right;
 +static BYTE *last_authentication_data;
 +static UINT last_authentication_data_size;
++static const BYTE office_subscription_validator_result[] = { 0x0c, 0x00, 0x00, 0x00, 0x01, 0x00,
++                                                             0x00, 0x00, 0x03, 0x00, 0x00, 0x00 };
 +
 +static const WCHAR *office_policy_names[] =
 +{
@@ -1555,18 +1635,21 @@ index 8819961d7c..75c6448097 100644
 +HRESULT WINAPI SLSetAuthenticationData(HSLC handle, UINT size, const BYTE *data)
 +{
 +    char bytes[3 * 32 + 1];
-+    UINT i, limit;
++    UINT i, j, limit;
 +
 +    FIXME("(%p %u %p) stub\n", handle, size, data);
 +
 +    if (!handle || (size && !data))
 +        return E_INVALIDARG;
 +
-+    limit = min(size, 32);
-+    for (i = 0; i < limit; ++i)
-+        sprintf(bytes + 3 * i, "%02x ", data[i]);
-+    bytes[3 * limit] = 0;
-+    FIXME("authentication data first %u bytes: %s\n", limit, bytes);
++    for (i = 0; i < size; i += 32)
++    {
++        limit = min(size - i, 32);
++        for (j = 0; j < limit; ++j)
++            sprintf(bytes + 3 * j, "%02x ", data[i + j]);
++        bytes[3 * limit] = 0;
++        FIXME("authentication data +0x%04x: %s\n", i, bytes);
++    }
 +
 +    LocalFree(last_authentication_data);
 +    last_authentication_data = NULL;
@@ -1586,13 +1669,37 @@ index 8819961d7c..75c6448097 100644
 +
 +HRESULT WINAPI SLGetAuthenticationResult(HSLC handle, UINT *size, BYTE **data)
 +{
++    WCHAR env[4];
++
 +    FIXME("(%p %p %p) stub\n", handle, size, data);
 +
 +    if (!handle || !size || !data)
 +        return E_INVALIDARG;
 +
-+    *size = 0;
-+    *data = NULL;
++    if (GetEnvironmentVariableW(L"OFFICE_SPP_AUTH_FLAGS_RESULT", env, ARRAY_SIZE(env)))
++    {
++        *data = LocalAlloc(0, sizeof(office_subscription_validator_result));
++        if (!*data)
++            return E_OUTOFMEMORY;
++        memcpy(*data, office_subscription_validator_result, sizeof(office_subscription_validator_result));
++        *size = sizeof(office_subscription_validator_result);
++        FIXME("returning Office subscription external-validator auth result.\n");
++        return S_OK;
++    }
++
++    if (!last_authentication_data_size)
++    {
++        *size = 0;
++        *data = NULL;
++        return SL_E_AUTHN_CHALLENGE_NOT_SET;
++    }
++
++    *data = LocalAlloc(0, last_authentication_data_size);
++    if (!*data)
++        return E_OUTOFMEMORY;
++
++    memcpy(*data, last_authentication_data, last_authentication_data_size);
++    *size = last_authentication_data_size;
 +    return S_OK;
 +}
 +
