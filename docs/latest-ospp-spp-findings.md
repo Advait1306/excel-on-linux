@@ -735,3 +735,79 @@ RoGetActivationFactory Failed to load module L"CoreMessagingXP.dll"
 RoGetActivationFactory Failed to find library for L"Windows.System.DispatcherQueue"
 dispatch_user_callback ignoring exception e0000002
 ```
+
+## DispatcherQueue Follow-Up
+
+Checkpoint: 2026-05-30 23:52 UTC
+
+After the ProductSku fix, the next visible state was a blank Office dialog.
+The filtered log showed:
+
+```text
+RoGetActivationFactory Failed to load module L"CoreMessagingXP.dll"
+RoGetActivationFactory Failed to find library for L"Windows.System.DispatcherQueue"
+Unhandled exception 0xe0000002
+```
+
+Findings:
+
+```text
+CoreMessagingXP.dll exists in Office16\WinAppSDK.
+Manual LoadLibrary works with WINEPATH.
+Excel's WinRT activation path still needed the DLL materialized in syswow64.
+CoreMessagingXP itself does not provide Windows.System.DispatcherQueue.
+```
+
+Implemented a minimal builtin `coremessaging.dll` activation factory for:
+
+```text
+Windows.System.DispatcherQueue
+IID {a96d83d7-9371-4517-9245-d0824ac12c74}
+```
+
+The shim currently supports:
+
+```text
+IDispatcherQueueStatics::GetForCurrentThread
+IDispatcherQueue::TryEnqueue
+IDispatcherQueue::TryEnqueueWithPriority
+IDispatcherQueue::add/remove_ShutdownStarting
+IDispatcherQueue::add/remove_ShutdownCompleted
+```
+
+Disposable-prefix registry used for the test:
+
+```text
+HKLM\Software\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.DispatcherQueue
+HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.DispatcherQueue
+DllPath = C:\windows\system32\coremessaging.dll
+```
+
+Test log:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/excel-launch-builtin-productsku-dispatcherqueue-shim.log
+```
+
+The previous DispatcherQueue and fail-fast lines are gone. The remaining
+filtered evidence is:
+
+```text
+RoGetActivationFactory Failed to find library for L"Windows.System.Profile.SharedModeSettings"
+RoGetActivationFactory (L"Microsoft.UI.Dispatching.DispatcherQueue", ...)
+RoGetActivationFactory (L"Windows.System.DispatcherQueue", ...)
+queue_add_ShutdownCompleted ... stub
+queue_QueryInterface {00000038-0000-0000-c000-000000000046} not implemented
+```
+
+Screenshot:
+
+```text
+public/latest-current-excel-builtin-dispatcherqueue-shim-blank-dialog.png
+```
+
+Conclusion: DispatcherQueue activation was a real blocker and is now past the
+obvious failure. The dialog still renders blank, so the next investigation
+should focus on the remaining WinUI/Office content path, including
+`Windows.System.Profile.SharedModeSettings` and the `IWeakReferenceSource`
+query (`{00000038-0000-0000-c000-000000000046}`) on the dispatcher queue.
