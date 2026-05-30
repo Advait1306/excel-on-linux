@@ -430,3 +430,40 @@ Next candidates are the large binary values under
 `OfficeSoftwareProtectionPlatform\data\8fcc4cd6-...`, fuller `osppsvc` service
 registration/state, or an OSPPSVC code path that treats some missing file or
 registry value as fatal and tears down the RPC interface.
+
+## OSPP Data Blob Test
+
+Checkpoint: 2026-05-30 22:27 UTC
+
+The normal `reg export` path from the known-good prefix only exposed the root
+`Path` value, but the raw Wine `system.reg` still contained the large binary
+values under:
+
+```text
+HKLM\Software\Microsoft\OfficeSoftwareProtectionPlatform\data\8fcc4cd6-36bc-4eb9-bece-10de1b3b8a45
+```
+
+Extracted the three values from the known-good raw registry and added them to
+the disposable latest authprobe prefix with `reg add /t REG_BINARY`. Verified
+the prefix can query values `0`, `1`, and `2`.
+
+Probe log:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/sppc-auth-probe-after-ospp-data-blobs.log
+```
+
+Relevant result:
+
+```text
+ReportEventW ... "0x80070002" / "15.0.169.500"
+RpcServerUnregisterIf ... {9435cc56-1d9c-4924-ac7d-b60a2c3520e1}
+SLOpen hr=0x00000000 handle=00356d18
+SLSetAuthenticationData hr=0xc0020012
+```
+
+Conclusion: copied known-good OSPP data blobs plus the plugin registry skeleton
+are not enough to keep native OSPPSVC alive. The remaining lead is a service
+runtime/state mismatch around the native stack at `OSPPSVC.EXE+0xa739f`, or a
+Wine builtin `sppc` implementation that avoids relying on the native OSPP
+service teardown path.
