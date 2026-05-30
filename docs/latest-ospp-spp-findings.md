@@ -186,3 +186,27 @@ That means standalone native OSPPC wants the OSPP RPC service protocol, and
 Wine does not support that RPC interface yet. A diagnostic Wine patch that made
 `SLOpen` return `0xc0020012` still hit Excel repair `702061`, so the current
 fix is not simply copying native's standalone failure code.
+
+The native OSPP binaries expose the local RPC transport details:
+
+```text
+ncalrpc
+OSPPCTransportEndpoint-00001
+SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform
+S-1-5-20\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform\Policies
+```
+
+`OSPPSVC.EXE` imports the RPC server side:
+
+```text
+RpcServerUseProtseqEpW
+RpcServerRegisterIfEx
+RpcServerListen
+NdrServerCall2
+NdrServerCallAll
+```
+
+Next likely implementation path: trace or shim the `ncalrpc`
+`OSPPCTransportEndpoint-00001` interface `{9435cc56-1d9c-4924-ac7d-b60a2c3520e1}`
+well enough for Office's `SL*` calls, or teach builtin Wine `sppc` the
+equivalent service-backed behavior without loading native OSPPC.
