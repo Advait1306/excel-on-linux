@@ -1358,10 +1358,10 @@ index cc35ab9d7e..78b439f2e1 100644
  #define DEFINE_IINSPECTABLE_( pfx, iface_type, impl_type, impl_from, iface_mem, expr )             \
      static inline impl_type *impl_from( iface_type *iface )                                        \
 diff --git a/dlls/sppc/sppc.c b/dlls/sppc/sppc.c
-index 8819961d7c..8ab1f49b86 100644
+index 8819961d7c..9d397a2af9 100644
 --- a/dlls/sppc/sppc.c
 +++ b/dlls/sppc/sppc.c
-@@ -31,12 +31,191 @@
+@@ -31,12 +31,257 @@
  
  WINE_DEFAULT_DEBUG_CHANNEL(slc);
  
@@ -1369,6 +1369,8 @@ index 8819961d7c..8ab1f49b86 100644
 +
 +static SLID last_consumed_right;
 +static BOOL has_consumed_right;
++static BYTE *last_authentication_data;
++static UINT last_authentication_data_size;
 +
 +static HRESULT return_empty_string_policy(SLDATATYPE *type, UINT *size, BYTE **data)
 +{
@@ -1383,6 +1385,32 @@ index 8819961d7c..8ab1f49b86 100644
 +    *size = sizeof(WCHAR);
 +    *data = (BYTE *)empty;
 +    return S_OK;
++}
++
++static HRESULT return_dword_policy(SLDATATYPE *type, UINT *size, BYTE **data, DWORD value)
++{
++    DWORD *policy;
++
++    policy = LocalAlloc(0, sizeof(*policy));
++    if (!policy)
++        return E_OUTOFMEMORY;
++
++    *policy = value;
++    if (type)
++        *type = SL_DATA_DWORD;
++    *size = sizeof(*policy);
++    *data = (BYTE *)policy;
++    return S_OK;
++}
++
++static BOOL get_known_office_dword_policy(const WCHAR *name, DWORD *value)
++{
++    if (!wcscmp(name, L"office-C845E028-E091-442E-8202-21F596C559A0"))
++    {
++        *value = 1;
++        return TRUE;
++    }
++    return FALSE;
 +}
 +
  HRESULT WINAPI SLGetLicensingStatusInformation(HSLC handle, const SLID *app, const SLID *product,
@@ -1450,10 +1478,35 @@ index 8819961d7c..8ab1f49b86 100644
 +{
 +    FIXME("(%p %u %p) stub\n", handle, size, data);
 +
-+    if (!handle)
++    if (!handle || (size && !data))
 +        return E_INVALIDARG;
 +
++    LocalFree(last_authentication_data);
++    last_authentication_data = NULL;
++    last_authentication_data_size = 0;
++
++    if (size)
++    {
++        last_authentication_data = LocalAlloc(0, size);
++        if (!last_authentication_data)
++            return E_OUTOFMEMORY;
++        memcpy(last_authentication_data, data, size);
++        last_authentication_data_size = size;
++    }
++
 +    return S_OK;
++}
++
++HRESULT WINAPI SLGetAuthenticationResult(HSLC handle, UINT *size, BYTE **data)
++{
++    FIXME("(%p %p %p) stub\n", handle, size, data);
++
++    if (!handle || !size || !data)
++        return E_INVALIDARG;
++
++    *size = 0;
++    *data = NULL;
++    return SL_E_AUTHN_CANT_VERIFY;
 +}
 +
 +HRESULT WINAPI SLConsumeRight(HSLC handle, const SLID *app, const SLID *product,
@@ -1473,6 +1526,8 @@ index 8819961d7c..8ab1f49b86 100644
 +HRESULT WINAPI SLGetPolicyInformation(HSLC handle, const WCHAR *name, SLDATATYPE *type,
 +                                      UINT *size, BYTE **data)
 +{
++    DWORD value;
++
 +    FIXME("(%p %s %p %p %p) stub\n", handle, debugstr_w(name), type, size, data);
 +
 +    if (!handle || !name || !size || !data)
@@ -1493,6 +1548,9 @@ index 8819961d7c..8ab1f49b86 100644
 +        return S_OK;
 +    }
 +
++    if (get_known_office_dword_policy(name, &value))
++        return return_dword_policy(type, size, data, value);
++
 +    if (!wcsncmp(name, L"office-", 7))
 +        return return_empty_string_policy(type, size, data);
 +
@@ -1511,6 +1569,9 @@ index 8819961d7c..8ab1f49b86 100644
 +        return E_INVALIDARG;
 +
 +    *value = 0;
++    if (get_known_office_dword_policy(name, value))
++        return S_OK;
++
 +    return SL_E_VALUE_NOT_FOUND;
 +}
 +
@@ -1528,10 +1589,15 @@ index 8819961d7c..8ab1f49b86 100644
 +HRESULT WINAPI SLGetApplicationPolicy(HSLP context, const WCHAR *name, SLDATATYPE *type,
 +                                      UINT *size, BYTE **data)
 +{
++    DWORD value;
++
 +    FIXME("(%p %s %p %p %p) stub\n", context, debugstr_w(name), type, size, data);
 +
 +    if (!context || !name || !size || !data)
 +        return E_INVALIDARG;
++
++    if (get_known_office_dword_policy(name, &value))
++        return return_dword_policy(type, size, data, value);
 +
 +    if (!wcsncmp(name, L"office-", 7))
 +        return return_empty_string_policy(type, size, data);
@@ -1554,6 +1620,65 @@ index 8819961d7c..8ab1f49b86 100644
  }
  
  HRESULT WINAPI SLOpen(HSLC *handle)
+diff --git a/dlls/sppc/sppc.spec b/dlls/sppc/sppc.spec
+index 6926d4d8b6..d5163a715d 100644
+--- a/dlls/sppc/sppc.spec
++++ b/dlls/sppc/sppc.spec
+@@ -18,7 +18,7 @@
+ @ stub SLpTriggerServiceWorker
+ @ stub SLpVLActivateProduct
+ @ stdcall SLClose(ptr)
+-@ stub SLConsumeRight
++@ stdcall SLConsumeRight(ptr ptr ptr wstr ptr)
+ @ stub SLDepositMigrationBlob
+ @ stub SLDepositOfflineConfirmationId
+ @ stub SLDepositOfflineConfirmationIdEx
+@@ -30,8 +30,8 @@
+ @ stub SLGenerateOfflineInstallationIdEx
+ @ stub SLGetActiveLicenseInfo
+ @ stub SLGetApplicationInformation
+-@ stub SLGetApplicationPolicy
+-@ stub SLGetAuthenticationResult
++@ stdcall SLGetApplicationPolicy(ptr wstr ptr ptr ptr)
++@ stdcall SLGetAuthenticationResult(ptr ptr ptr)
+ @ stub SLGetEncryptedPIDEx
+ @ stub SLGetGenuineInformation
+ @ stub SLGetInstalledProductKeyIds
+@@ -41,27 +41,27 @@
+ @ stdcall SLGetLicensingStatusInformation(ptr ptr ptr wstr ptr ptr)
+ @ stub SLGetPKeyId
+ @ stub SLGetPKeyInformation
+-@ stub SLGetPolicyInformation
+-@ stub SLGetPolicyInformationDWORD
++@ stdcall SLGetPolicyInformation(ptr wstr ptr ptr ptr)
++@ stdcall SLGetPolicyInformationDWORD(ptr wstr ptr)
+ @ stub SLGetProductSkuInformation
+-@ stub SLGetSLIDList
++@ stdcall SLGetSLIDList(ptr long ptr long ptr ptr)
+ @ stub SLGetServiceInformation
+-@ stub SLInstallLicense
++@ stdcall SLInstallLicense(ptr long ptr ptr)
+ @ stub SLInstallProofOfPurchase
+ @ stub SLInstallProofOfPurchaseEx
+ @ stub SLIsGenuineLocalEx
+-@ stub SLLoadApplicationPolicies
++@ stdcall SLLoadApplicationPolicies(ptr ptr long ptr)
+ @ stdcall SLOpen(ptr)
+ @ stdcall SLPersistApplicationPolicies(ptr ptr long)
+ @ stub SLPersistRTSPayloadOverride
+ @ stub SLReArm
+ @ stub SLRegisterEvent
+ @ stub SLRegisterPlugin
+-@ stub SLSetAuthenticationData
++@ stdcall SLSetAuthenticationData(ptr long ptr)
+ @ stub SLSetCurrentProductKey
+ @ stub SLSetGenuineInformation
+ @ stub SLUninstallLicense
+ @ stub SLUninstallProofOfPurchase
+-@ stub SLUnloadApplicationPolicies
++@ stdcall SLUnloadApplicationPolicies(ptr long)
+ @ stub SLUnregisterEvent
+ @ stub SLUnregisterPlugin
 diff --git a/dlls/xmllite/reader.c b/dlls/xmllite/reader.c
 index 1e146493aa..8017755565 100644
 --- a/dlls/xmllite/reader.c
@@ -1588,3 +1713,15 @@ index 1e146493aa..8017755565 100644
      return FALSE;
  }
  
+diff --git a/include/slerror.h b/include/slerror.h
+index 4980a96e73..0398eed7aa 100644
+--- a/include/slerror.h
++++ b/include/slerror.h
+@@ -23,5 +23,7 @@
+ #define SL_E_VALUE_NOT_FOUND          0xC004F012
+ #define SL_E_RIGHT_NOT_GRANTED        0xC004F013
+ #define SL_E_DATATYPE_MISMATCHED      0xC004F01E
++#define SL_E_AUTHN_CHALLENGE_NOT_SET  0xC004F079
++#define SL_E_AUTHN_CANT_VERIFY        0xC004F07A
+ 
+ #endif /* __WINE_SLERROR_H */
