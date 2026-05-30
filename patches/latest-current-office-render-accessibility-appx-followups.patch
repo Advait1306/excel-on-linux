@@ -1358,10 +1358,10 @@ index cc35ab9d7e..78b439f2e1 100644
  #define DEFINE_IINSPECTABLE_( pfx, iface_type, impl_type, impl_from, iface_mem, expr )             \
      static inline impl_type *impl_from( iface_type *iface )                                        \
 diff --git a/dlls/sppc/sppc.c b/dlls/sppc/sppc.c
-index 8819961d7c..9d397a2af9 100644
+index 8819961d7c..75c6448097 100644
 --- a/dlls/sppc/sppc.c
 +++ b/dlls/sppc/sppc.c
-@@ -31,12 +31,257 @@
+@@ -31,12 +31,337 @@
  
  WINE_DEFAULT_DEBUG_CHANNEL(slc);
  
@@ -1372,18 +1372,63 @@ index 8819961d7c..9d397a2af9 100644
 +static BYTE *last_authentication_data;
 +static UINT last_authentication_data_size;
 +
-+static HRESULT return_empty_string_policy(SLDATATYPE *type, UINT *size, BYTE **data)
++static const WCHAR *office_policy_names[] =
 +{
-+    WCHAR *empty;
++    L"office-C845E028-E091-442E-8202-21F596C559A0",
++    L"office-LicenseType",
++    L"office-ApplicationBitmap",
++    L"office-AppPrivilege.ProXML",
++    L"office-AppPrivilege.CommercialUse",
++    L"office-AppPrivilege.OPEP",
++    L"office-Activatable",
++    L"office-DisplayEULA",
++    L"office-AppPrivilege.OneNotePro",
++    L"office-AppPrivilege.licensing_isPaid",
++    L"office-AppPrivilege.licensing_isSubscription",
++    L"office-AppPrivilege.licensing_runOnNonCloud",
++};
 +
-+    empty = LocalAlloc(LPTR, sizeof(WCHAR));
-+    if (!empty)
++static HRESULT return_policy_name_list(SLDATATYPE *type, UINT *size, BYTE **data)
++{
++    WCHAR *multi, *cursor;
++    SIZE_T len = 1;
++    unsigned int i;
++
++    for (i = 0; i < ARRAY_SIZE(office_policy_names); ++i)
++        len += wcslen(office_policy_names[i]) + 1;
++
++    multi = LocalAlloc(LPTR, len * sizeof(WCHAR));
++    if (!multi)
 +        return E_OUTOFMEMORY;
 +
++    cursor = multi;
++    for (i = 0; i < ARRAY_SIZE(office_policy_names); ++i)
++    {
++        lstrcpyW(cursor, office_policy_names[i]);
++        cursor += lstrlenW(cursor) + 1;
++    }
++
++    if (type)
++        *type = SL_DATA_MULTI_SZ;
++    *size = len * sizeof(WCHAR);
++    *data = (BYTE *)multi;
++    return S_OK;
++}
++
++static HRESULT return_string_policy(SLDATATYPE *type, UINT *size, BYTE **data, const WCHAR *value)
++{
++    WCHAR *policy;
++    SIZE_T bytes = (lstrlenW(value) + 1) * sizeof(WCHAR);
++
++    policy = LocalAlloc(0, bytes);
++    if (!policy)
++        return E_OUTOFMEMORY;
++
++    memcpy(policy, value, bytes);
 +    if (type)
 +        *type = SL_DATA_SZ;
-+    *size = sizeof(WCHAR);
-+    *data = (BYTE *)empty;
++    *size = bytes;
++    *data = (BYTE *)policy;
 +    return S_OK;
 +}
 +
@@ -1403,9 +1448,42 @@ index 8819961d7c..9d397a2af9 100644
 +    return S_OK;
 +}
 +
++static BOOL get_known_office_string_policy(const WCHAR *name, const WCHAR **value)
++{
++    if (!wcscmp(name, L"office-LicenseType"))
++    {
++        *value = L"Subscription";
++        return TRUE;
++    }
++    if (!wcscmp(name, L"office-ApplicationBitmap"))
++    {
++        *value = L"0x000001BB";
++        return TRUE;
++    }
++    return FALSE;
++}
++
 +static BOOL get_known_office_dword_policy(const WCHAR *name, DWORD *value)
 +{
 +    if (!wcscmp(name, L"office-C845E028-E091-442E-8202-21F596C559A0"))
++    {
++        *value = 1;
++        return TRUE;
++    }
++    if (!wcscmp(name, L"office-ParentCode"))
++    {
++        *value = 7;
++        return TRUE;
++    }
++    if (!wcscmp(name, L"office-AppPrivilege.ProXML") ||
++        !wcscmp(name, L"office-AppPrivilege.CommercialUse") ||
++        !wcscmp(name, L"office-AppPrivilege.OPEP") ||
++        !wcscmp(name, L"office-Activatable") ||
++        !wcscmp(name, L"office-DisplayEULA") ||
++        !wcscmp(name, L"office-AppPrivilege.OneNotePro") ||
++        !wcscmp(name, L"office-AppPrivilege.licensing_isPaid") ||
++        !wcscmp(name, L"office-AppPrivilege.licensing_isSubscription") ||
++        !wcscmp(name, L"office-AppPrivilege.licensing_runOnNonCloud"))
 +    {
 +        *value = 1;
 +        return TRUE;
@@ -1476,10 +1554,19 @@ index 8819961d7c..9d397a2af9 100644
 +
 +HRESULT WINAPI SLSetAuthenticationData(HSLC handle, UINT size, const BYTE *data)
 +{
++    char bytes[3 * 32 + 1];
++    UINT i, limit;
++
 +    FIXME("(%p %u %p) stub\n", handle, size, data);
 +
 +    if (!handle || (size && !data))
 +        return E_INVALIDARG;
++
++    limit = min(size, 32);
++    for (i = 0; i < limit; ++i)
++        sprintf(bytes + 3 * i, "%02x ", data[i]);
++    bytes[3 * limit] = 0;
++    FIXME("authentication data first %u bytes: %s\n", limit, bytes);
 +
 +    LocalFree(last_authentication_data);
 +    last_authentication_data = NULL;
@@ -1506,7 +1593,7 @@ index 8819961d7c..9d397a2af9 100644
 +
 +    *size = 0;
 +    *data = NULL;
-+    return SL_E_AUTHN_CANT_VERIFY;
++    return S_OK;
 +}
 +
 +HRESULT WINAPI SLConsumeRight(HSLC handle, const SLID *app, const SLID *product,
@@ -1527,6 +1614,7 @@ index 8819961d7c..9d397a2af9 100644
 +                                      UINT *size, BYTE **data)
 +{
 +    DWORD value;
++    const WCHAR *string_value;
 +
 +    FIXME("(%p %s %p %p %p) stub\n", handle, debugstr_w(name), type, size, data);
 +
@@ -1534,25 +1622,13 @@ index 8819961d7c..9d397a2af9 100644
 +        return E_INVALIDARG;
 +
 +    if (!wcscmp(name, L"*"))
-+    {
-+        WCHAR *empty;
-+
-+        empty = LocalAlloc(LPTR, sizeof(WCHAR));
-+        if (!empty)
-+            return E_OUTOFMEMORY;
-+
-+        if (type)
-+            *type = SL_DATA_MULTI_SZ;
-+        *size = sizeof(WCHAR);
-+        *data = (BYTE *)empty;
-+        return S_OK;
-+    }
++        return return_policy_name_list(type, size, data);
 +
 +    if (get_known_office_dword_policy(name, &value))
 +        return return_dword_policy(type, size, data, value);
 +
-+    if (!wcsncmp(name, L"office-", 7))
-+        return return_empty_string_policy(type, size, data);
++    if (get_known_office_string_policy(name, &string_value))
++        return return_string_policy(type, size, data, string_value);
 +
 +    if (type)
 +        *type = SL_DATA_NONE;
@@ -1590,17 +1666,21 @@ index 8819961d7c..9d397a2af9 100644
 +                                      UINT *size, BYTE **data)
 +{
 +    DWORD value;
++    const WCHAR *string_value;
 +
 +    FIXME("(%p %s %p %p %p) stub\n", context, debugstr_w(name), type, size, data);
 +
 +    if (!context || !name || !size || !data)
 +        return E_INVALIDARG;
 +
++    if (!wcscmp(name, L"*"))
++        return return_policy_name_list(type, size, data);
++
 +    if (get_known_office_dword_policy(name, &value))
 +        return return_dword_policy(type, size, data, value);
 +
-+    if (!wcsncmp(name, L"office-", 7))
-+        return return_empty_string_policy(type, size, data);
++    if (get_known_office_string_policy(name, &string_value))
++        return return_string_policy(type, size, data, string_value);
 +
 +    if (type)
 +        *type = SL_DATA_NONE;
