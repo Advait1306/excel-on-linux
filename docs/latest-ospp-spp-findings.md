@@ -210,3 +210,67 @@ Next likely implementation path: trace or shim the `ncalrpc`
 `OSPPCTransportEndpoint-00001` interface `{9435cc56-1d9c-4924-ac7d-b60a2c3520e1}`
 well enough for Office's `SL*` calls, or teach builtin Wine `sppc` the
 equivalent service-backed behavior without loading native OSPPC.
+
+## RPC Lifetime Trace
+
+Checkpoint: 2026-05-30 21:40 UTC
+
+Trace command:
+
+```bash
+timeout 25s env WINEDEBUG=+rpc,+ndr,+module \
+  WINEPREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx \
+  WINEARCH=win64 \
+  PATH=/home/mars-user/office-open-repro/valve-wine-ge10-install/bin:$PATH \
+  LD_LIBRARY_PATH=/home/mars-user/office-open-repro/valve-wine-ge10-install/lib:/home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine \
+  /home/mars-user/office-open-repro/valve-wine-ge10-install/bin/wine \
+    /home/mars-user/excel-on-linux/tools/sppc-auth-probe32.exe \
+  > /home/mars-user/office-open-repro/logs-latest-authprobe/sppc-auth-probe-rpc.log 2>&1
+```
+
+The service does register the OSPP interface:
+
+```text
+RpcServerUseProtseqEpW (L"ncalrpc",100,L"OSPPCTransportEndpoint-00001",...)
+RpcServerRegisterIf3 interface id: {9435cc56-1d9c-4924-ac7d-b60a2c3520e1} 1.0
+dispatch table count: 4
+```
+
+The first native client bind is accepted:
+
+```text
+process_bind_packet_no_send accepting bind request on connection ... for {9435cc56-1d9c-4924-ac7d-b60a2c3520e1}
+```
+
+Then OSPPSVC reports `0x80070002` and unregisters the interface:
+
+```text
+ReportEventW event string[0]: L"0x80070002"
+ReportEventW event string[1]: L"15.0.169.500"
+RpcServerUnregisterIf ... ({9435cc56-1d9c-4924-ac7d-b60a2c3520e1})
+```
+
+Later client calls then fail because the interface is gone:
+
+```text
+process_request_packet interface {9435cc56-1d9c-4924-ac7d-b60a2c3520e1} no longer registered
+```
+
+An additional trace with `+file,+reg,+rpc` shows OSPPSVC checks:
+
+```text
+C:\ProgramData\Microsoft\OfficeSoftwareProtectionPlatform\
+HKLM\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform
+HKLM\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform\data
+```
+
+but no definitive missing `tokens.dat` open was observed before the event.
+Copying the older known-good `tokens.dat` and `Cache\cache.dat` into the
+disposable authprobe prefix did not change the outcome: OSPPSVC still reported
+`0x80070002`, unregistered `{9435cc56...}`, and native `SLOpen` returned
+`0xc0020012`.
+
+The next useful experiment is to identify what OSPPSVC's first RPC method
+expects and why it posts `0x80070002`. In the trace, native OSPP uses four
+interface methods; the probe reaches proc nums `0`, `1`, and `2`, while the
+service unregisters immediately after handling the first request.
