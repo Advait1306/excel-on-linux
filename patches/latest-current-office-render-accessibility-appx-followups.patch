@@ -1961,10 +1961,10 @@ index 12f4ff6441..de4f1f3f99 100644
  @ stub EventAccessControl
  @ stub EventAccessQuery
 diff --git a/dlls/sppc/sppc.c b/dlls/sppc/sppc.c
-index 8819961d7c..9d8e64352b 100644
+index 8819961d7c..8e83a3c8d4 100644
 --- a/dlls/sppc/sppc.c
 +++ b/dlls/sppc/sppc.c
-@@ -31,21 +31,536 @@
+@@ -31,21 +31,624 @@
  
  WINE_DEFAULT_DEBUG_CHANNEL(slc);
  
@@ -1976,6 +1976,26 @@ index 8819961d7c..9d8e64352b 100644
 +static UINT last_authentication_data_size;
 +static const BYTE office_subscription_validator_result[] = { 0x0c, 0x00, 0x00, 0x00, 0x01, 0x00,
 +                                                             0x00, 0x00, 0x03, 0x00, 0x00, 0x00 };
++static const SLID office_unlicensed_skus[] =
++{
++    {0x28f64a3f,0xcf84,0x46da,{0xb1,0xe8,0x2d,0xfa,0x77,0x50,0xe4,0x91}},
++    {0x4c1d1588,0x3088,0x4796,{0xb3,0xb2,0x89,0x35,0xf3,0xa0,0xd8,0x86}},
++    {0x52287aa3,0x9945,0x44d1,{0x90,0x46,0x7a,0x33,0x73,0x66,0x68,0x21}},
++    {0x537ea5b5,0x7d50,0x4876,{0xbd,0x38,0xa5,0x3a,0x77,0xca,0xca,0x32}},
++    {0x77f47589,0x2212,0x4e3b,{0xad,0x27,0xa9,0x00,0xce,0x81,0x38,0x37}},
++    {0x7ab38a1c,0xa803,0x4ca5,{0x8e,0xbb,0xf8,0x78,0x6c,0x4b,0x4f,0xaa}},
++    {0x86af9220,0x9d6f,0x4575,{0xbe,0xf0,0x61,0x9a,0x9a,0x6a,0xa0,0x05}},
++    {0x951c0fe6,0x40a8,0x4400,{0x80,0x03,0xee,0xc0,0x68,0x6f,0xfb,0xc4}},
++    {0x95820f84,0x6e8c,0x4d22,{0xb2,0xce,0x54,0x95,0x3e,0x99,0x11,0xbc}},
++    {0x96353198,0x443e,0x479d,{0x9e,0x80,0x9a,0x6d,0x72,0xfd,0x1a,0x99}},
++    {0xa96f8dae,0xda54,0x4fad,{0xbd,0xc6,0x10,0x8d,0xa5,0x92,0x70,0x7a}},
++    {0xae9d158f,0x9450,0x4a0c,{0x8c,0x80,0xdd,0x97,0x3c,0x58,0x35,0x7c}},
++    {0xb4af11be,0x5f94,0x4d8f,{0x98,0x44,0xce,0x0d,0x5e,0x0d,0x86,0x80}},
++    {0xb58a5943,0x16ea,0x420f,{0xa6,0x11,0x7b,0x23,0x0a,0xcd,0x76,0x2c}},
++    {0xc85fe025,0xb033,0x4f41,{0x93,0x6b,0xb1,0x21,0x52,0x1b,0xa1,0xc1}},
++    {0xd7279dd0,0xe175,0x49fe,{0xa6,0x23,0x8f,0xc2,0xfc,0x00,0xaf,0xc4}},
++    {0xfb3540bc,0xa824,0x4c79,{0x83,0xda,0x6f,0x6b,0xd3,0xac,0x6c,0xcb}},
++};
 +
 +#define OFFICE_E_LICENSE_SERVICE_FAILURE 0xc004d301
 +#define OFFICE_E_LICENSE_NOT_INSTALLED   0xc004f014
@@ -1986,6 +2006,18 @@ index 8819961d7c..9d8e64352b 100644
 +    WCHAR env[4];
 +
 +    return !!GetEnvironmentVariableW(L"OFFICE_SPP_NATIVE_POLICY_ERRORS", env, ARRAY_SIZE(env));
++}
++
++static BOOL is_known_office_sku(const SLID *product)
++{
++    unsigned int i;
++
++    for (i = 0; i < ARRAY_SIZE(office_unlicensed_skus); ++i)
++    {
++        if (IsEqualGUID(product, &office_unlicensed_skus[i]))
++            return TRUE;
++    }
++    return FALSE;
 +}
 +
 +static const WCHAR *office_policy_names[] =
@@ -2177,13 +2209,19 @@ index 8819961d7c..9d8e64352b 100644
 +
 +    if (use_native_policy_errors())
 +    {
-+        entry = LocalAlloc(LPTR, 16 * sizeof(*entry));
++        unsigned int i;
++
++        entry = LocalAlloc(LPTR, ARRAY_SIZE(office_unlicensed_skus) * sizeof(*entry));
 +        if (!entry)
 +            return E_OUTOFMEMORY;
 +
-+        entry[0].eStatus = SL_LICENSING_STATUS_UNLICENSED;
-+        entry[0].hrReason = OFFICE_E_LICENSE_NOT_INSTALLED;
-+        *count = 16;
++        for (i = 0; i < ARRAY_SIZE(office_unlicensed_skus); ++i)
++        {
++            entry[i].SkuId = office_unlicensed_skus[i];
++            entry[i].eStatus = SL_LICENSING_STATUS_UNLICENSED;
++            entry[i].hrReason = OFFICE_E_LICENSE_NOT_INSTALLED;
++        }
++        *count = ARRAY_SIZE(office_unlicensed_skus);
 +        *status = entry;
 +        FIXME("returning native OSPP-compatible unlicensed status list.\n");
 +        return S_OK;
@@ -2328,8 +2366,11 @@ index 8819961d7c..9d8e64352b 100644
 +
 +    if (use_native_policy_errors())
 +    {
-+        FIXME("returning native OSPP-compatible consume-right failure.\n");
-+        return OFFICE_E_LICENSE_SERVICE_FAILURE;
++        HRESULT hr = has_consumed_right ? SL_E_RIGHT_NOT_GRANTED : OFFICE_E_LICENSE_SERVICE_FAILURE;
++
++        has_consumed_right = TRUE;
++        FIXME("returning native OSPP-compatible consume-right failure %#lx.\n", hr);
++        return hr;
 +    }
 +
 +    last_consumed_right = product ? *product : *app;
@@ -2400,6 +2441,53 @@ index 8819961d7c..9d8e64352b 100644
 +    if (get_known_office_dword_policy(name, value))
 +        return S_OK;
 +
++    return SL_E_VALUE_NOT_FOUND;
++}
++
++HRESULT WINAPI SLGetProductSkuInformation(HSLC handle, const SLID *product, const WCHAR *name,
++                                          SLDATATYPE *type, UINT *size, BYTE **data)
++{
++    DWORD value;
++    const WCHAR *string_value;
++    WCHAR office_name[128];
++
++    FIXME("(%p %s %s %p %p %p) stub\n", handle, wine_dbgstr_guid(product),
++          debugstr_w(name), type, size, data);
++
++    if (!handle || !product || !name || !size || !data)
++        return E_INVALIDARG;
++
++    if (use_native_policy_errors() && !is_known_office_sku(product))
++    {
++        if (type)
++            *type = SL_DATA_NONE;
++        *size = 0;
++        *data = NULL;
++        return 0xc004f012;
++    }
++
++    if (!wcsncmp(name, L"office-", lstrlenW(L"office-")))
++    {
++        if (get_known_office_dword_policy(name, &value))
++            return return_dword_policy(type, size, data, value);
++        if (get_known_office_string_policy(name, &string_value))
++            return return_string_policy(type, size, data, string_value);
++    }
++    else if (lstrlenW(name) + lstrlenW(L"office-") < ARRAY_SIZE(office_name))
++    {
++        lstrcpyW(office_name, L"office-");
++        lstrcatW(office_name, name);
++
++        if (get_known_office_dword_policy(office_name, &value))
++            return return_dword_policy(type, size, data, value);
++        if (get_known_office_string_policy(office_name, &string_value))
++            return return_string_policy(type, size, data, string_value);
++    }
++
++    if (type)
++        *type = SL_DATA_NONE;
++    *size = 0;
++    *data = NULL;
 +    return SL_E_VALUE_NOT_FOUND;
 +}
 +
@@ -2503,7 +2591,7 @@ index 8819961d7c..9d8e64352b 100644
  
      return S_OK;
 diff --git a/dlls/sppc/sppc.spec b/dlls/sppc/sppc.spec
-index 6926d4d8b6..d5163a715d 100644
+index 6926d4d8b6..82a52059f1 100644
 --- a/dlls/sppc/sppc.spec
 +++ b/dlls/sppc/sppc.spec
 @@ -18,7 +18,7 @@
@@ -2532,10 +2620,11 @@ index 6926d4d8b6..d5163a715d 100644
  @ stub SLGetPKeyInformation
 -@ stub SLGetPolicyInformation
 -@ stub SLGetPolicyInformationDWORD
+-@ stub SLGetProductSkuInformation
+-@ stub SLGetSLIDList
 +@ stdcall SLGetPolicyInformation(ptr wstr ptr ptr ptr)
 +@ stdcall SLGetPolicyInformationDWORD(ptr wstr ptr)
- @ stub SLGetProductSkuInformation
--@ stub SLGetSLIDList
++@ stdcall SLGetProductSkuInformation(ptr ptr wstr ptr ptr ptr)
 +@ stdcall SLGetSLIDList(ptr long ptr long ptr ptr)
  @ stub SLGetServiceInformation
 -@ stub SLInstallLicense

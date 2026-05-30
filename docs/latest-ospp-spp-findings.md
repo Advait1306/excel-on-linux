@@ -649,3 +649,89 @@ Native OSPP must be affecting additional state or answering additional calls
 that the current probe does not cover. The next useful direction is to expand
 coverage to more native OSPPC exports or trace in-process calls/side effects,
 rather than further tweaking these already matched public results.
+
+## ProductSku Information Comparison
+
+Checkpoint: 2026-05-30 23:29 UTC
+
+Native-DLL snoop on the disposable authprobe prefix showed the missing call
+after `SLGetLicensingStatusInformation`: Excel calls native
+`SLGetProductSkuInformation` repeatedly with licensing-status SKU GUIDs and the
+name `ApplicationBitmap`.
+
+Snoop evidence:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/excel-native-osppc-snoop.log
+```
+
+Key native call shape:
+
+```text
+SLGetLicensingStatusInformation(...) retval=00000000
+SLGetProductSkuInformation(..., {status sku}, L"ApplicationBitmap", ...) retval=00000000
+```
+
+The expanded probe shows the real native values:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/sppc-policy-probe-native-productsku-status-all.log
+```
+
+Relevant output:
+
+```text
+SLGetLicensingStatusInformation hr=0x00000000 count=17 ... first_sku={28f64a3f-cf84-46da-b1e8-2dfa7750e491}
+SLGetProductSkuInformation(app/ApplicationBitmap) hr=0xc004f012 type=0 size=0
+SLGetProductSkuInformation(status[0]/ApplicationBitmap) hr=0x00000000 type=1 size=22 first='0x000001BB'
+```
+
+Implemented in builtin Wine `sppc`:
+
+```text
+SLGetProductSkuInformation
+17 native unlicensed SKU GUIDs in SLGetLicensingStatusInformation
+Native-policy diagnostic first/second SLConsumeRight behavior
+```
+
+Builtin probe evidence:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/sppc-policy-probe-builtin-productsku-status2.log
+```
+
+Relevant output:
+
+```text
+SLConsumeRight hr=0xc004d301
+SLGetLicensingStatusInformation hr=0x00000000 count=17 ... first_sku={28f64a3f-cf84-46da-b1e8-2dfa7750e491}
+SLGetProductSkuInformation(app/ApplicationBitmap) hr=0xc004f012 type=0 size=0
+SLGetProductSkuInformation(status[0]/ApplicationBitmap) hr=0x00000000 type=1 size=22 first='0x000001BB'
+```
+
+Latest Excel result with builtin `sppc`:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/excel-launch-builtin-productsku.log
+```
+
+The previous repair event is gone:
+
+```bash
+grep -n 702061 /home/mars-user/office-open-repro/logs-latest-authprobe/excel-launch-builtin-productsku.log
+```
+
+No lines are returned. The launch reaches a blank Office dialog shell instead
+of the repair prompt. Screenshot:
+
+```text
+public/latest-current-excel-builtin-productsku-blank-dialog.png
+```
+
+The next blocker is now later UI/WinRT activation, not the SPP repair gate:
+
+```text
+RoGetActivationFactory Failed to load module L"CoreMessagingXP.dll"
+RoGetActivationFactory Failed to find library for L"Windows.System.DispatcherQueue"
+dispatch_user_callback ignoring exception e0000002
+```

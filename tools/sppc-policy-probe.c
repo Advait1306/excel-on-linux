@@ -40,6 +40,9 @@ typedef HRESULT (WINAPI *SLUnloadApplicationPoliciesFunc)(HSLP context, DWORD fl
 typedef HRESULT (WINAPI *SLGetLicensingStatusInformationFunc)(HSLC handle, const SLID *app,
                                                               const SLID *product, const WCHAR *name,
                                                               UINT *count, SL_LICENSING_STATUS **status);
+typedef HRESULT (WINAPI *SLGetProductSkuInformationFunc)(HSLC handle, const SLID *product,
+                                                         const WCHAR *name, SLDATATYPE *type,
+                                                         UINT *size, BYTE **data);
 
 static const SLID excel_app = {0x0ff1ce15,0xa989,0x479d,{0xaf,0x46,0xf2,0x75,0xc6,0x37,0x06,0x63}};
 
@@ -90,6 +93,14 @@ static void print_value(const char *label, HRESULT hr, SLDATATYPE type, UINT siz
     if (data) LocalFree(data);
 }
 
+static void print_guid(const GUID *guid)
+{
+    printf("{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+           (unsigned long)guid->Data1, guid->Data2, guid->Data3,
+           guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3],
+           guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]);
+}
+
 static void query_policy(SLGetPolicyInformationFunc fn, HSLC handle, const WCHAR *name)
 {
     SLDATATYPE type = SL_DATA_NONE;
@@ -129,9 +140,11 @@ int main(void)
     SLGetApplicationPolicyFunc pSLGetApplicationPolicy;
     SLUnloadApplicationPoliciesFunc pSLUnloadApplicationPolicies;
     SLGetLicensingStatusInformationFunc pSLGetLicensingStatusInformation;
+    SLGetProductSkuInformationFunc pSLGetProductSkuInformation;
     HSLC handle = NULL;
     HSLP context = NULL;
     HRESULT hr;
+    SLDATATYPE type = SL_DATA_NONE;
     UINT size = 0, count = 0;
     BYTE *data = NULL;
     SL_LICENSING_STATUS *status = NULL;
@@ -152,10 +165,12 @@ int main(void)
     pSLGetApplicationPolicy = (SLGetApplicationPolicyFunc)GetProcAddress(sppc, "SLGetApplicationPolicy");
     pSLUnloadApplicationPolicies = (SLUnloadApplicationPoliciesFunc)GetProcAddress(sppc, "SLUnloadApplicationPolicies");
     pSLGetLicensingStatusInformation = (SLGetLicensingStatusInformationFunc)GetProcAddress(sppc, "SLGetLicensingStatusInformation");
+    pSLGetProductSkuInformation = (SLGetProductSkuInformationFunc)GetProcAddress(sppc, "SLGetProductSkuInformation");
 
     if (!pSLOpen || !pSLClose || !pSLConsumeRight || !pSLSetAuthenticationData ||
         !pSLGetAuthenticationResult || !pSLGetPolicyInformation || !pSLLoadApplicationPolicies ||
-        !pSLGetApplicationPolicy || !pSLUnloadApplicationPolicies || !pSLGetLicensingStatusInformation)
+        !pSLGetApplicationPolicy || !pSLUnloadApplicationPolicies || !pSLGetLicensingStatusInformation ||
+        !pSLGetProductSkuInformation)
     {
         printf("missing sppc exports\n");
         return 2;
@@ -192,10 +207,45 @@ int main(void)
     hr = pSLGetLicensingStatusInformation(handle, NULL, NULL, NULL, &count, &status);
     printf("SLGetLicensingStatusInformation hr=0x%08lx count=%u", (unsigned long)hr, count);
     if (SUCCEEDED(hr) && status && count)
+    {
+        unsigned int i;
+
         printf(" status=%lu grace=%lu reason=0x%08lx", (unsigned long)status[0].eStatus,
                (unsigned long)status[0].dwGraceTime, (unsigned long)status[0].hrReason);
-    printf("\n");
-    if (status) LocalFree(status);
+        printf(" first_sku=");
+        print_guid(&status[0].SkuId);
+        printf("\n");
+        for (i = 0; i < count; ++i)
+        {
+            printf("  licensing_status[%u] sku=", i);
+            print_guid(&status[i].SkuId);
+            printf(" status=%lu reason=0x%08lx\n", (unsigned long)status[i].eStatus,
+                   (unsigned long)status[i].hrReason);
+        }
+    }
+    else
+        printf("\n");
+
+    hr = pSLGetProductSkuInformation(handle, &excel_app, L"ApplicationBitmap", &type, &size, &data);
+    print_value("SLGetProductSkuInformation(app/ApplicationBitmap)", hr, type, size, data);
+
+    if (status)
+    {
+        unsigned int i, limit = count < 4 ? count : 4;
+
+        for (i = 0; i < limit; ++i)
+        {
+            char label[96];
+
+            type = SL_DATA_NONE;
+            size = 0;
+            data = NULL;
+            snprintf(label, sizeof(label), "SLGetProductSkuInformation(status[%u]/ApplicationBitmap)", i);
+            hr = pSLGetProductSkuInformation(handle, &status[i].SkuId, L"ApplicationBitmap", &type, &size, &data);
+            print_value(label, hr, type, size, data);
+        }
+        LocalFree(status);
+    }
 
     hr = pSLClose(handle);
     printf("SLClose hr=0x%08lx\n", (unsigned long)hr);
