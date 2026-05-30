@@ -111,3 +111,18 @@ build:
   `SLSetAuthenticationData` challenge;
 - preserve the latest/current Excel path and keep the older archived Office
   prefix untouched.
+
+Native OSPPC exports 55 `SL*`/`SLp*` entry points. The current Wine `sppc`
+worktree implements the functions Excel has reached so far, but the saved logs
+do not contain the full 288-byte authentication challenge anymore. Only the
+first bytes were preserved in `progress.md`:
+
+```text
+20 01 00 00 01 00 00 00 00 00 01 00 0c 01 00 00
+01 02 00 00 10 66 00 00 00 a4 00 00 c1 9c ef 06 ...
+```
+
+Do not implement the final auth response from this partial blob. The next clean
+step is to capture the full `SLSetAuthenticationData` payload again in a
+disposable restored/builtin-SPP test prefix, then feed those bytes to native
+OSPP with a small probe to observe the real `SLGetAuthenticationResult` output.
