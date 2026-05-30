@@ -382,3 +382,51 @@ This makes the next implementation target narrower: either prevent the native
 service from tearing down by satisfying its startup data expectation, or stop
 depending on native OSPP and implement enough of proc `0/2/1` behavior in
 Wine's builtin `sppc` for Excel's auth challenge.
+
+## OSPP Plugin Registry Skeleton Test
+
+Checkpoint: 2026-05-30 22:18 UTC
+
+Compared the known-good Office 16.0.12527 prefix against the latest authprobe
+clone and found that the known-good prefix has a populated
+`HKLM\Software\Microsoft\OfficeSoftwareProtectionPlatform` tree:
+
+- root values such as `InactivityShutdownDelay`, `ServiceSessionId`, and
+  `UserOperations`
+- `data` directory key `8fcc4cd6-36bc-4eb9-bece-10de1b3b8a45`
+- plugin module `ba38975c-7786-44bc-b924-147c77920328`
+- plugin object registrations for SPP algorithms, payload handlers, state
+  collector, task scheduler, and KMS renewal objects
+
+Added that registry skeleton to the disposable latest authprobe prefix and
+verified it was visible via:
+
+```bash
+env WINEPREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx \
+  WINEARCH=win64 \
+  PATH=/home/mars-user/office-open-repro/valve-wine-ge10-install/bin:$PATH \
+  LD_LIBRARY_PATH=/home/mars-user/office-open-repro/valve-wine-ge10-install/lib:/home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine \
+  /home/mars-user/office-open-repro/valve-wine-ge10-install/bin/wine \
+  reg query 'HKLM\Software\Microsoft\OfficeSoftwareProtectionPlatform' /s
+```
+
+Probe log:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/sppc-auth-probe-after-ospp-plugin-reg.log
+```
+
+Result is unchanged:
+
+```text
+ReportEventW ... "0x80070002" / "15.0.169.500"
+RpcServerUnregisterIf ... {9435cc56-1d9c-4924-ac7d-b60a2c3520e1}
+SLOpen hr=0x00000000 handle=00356d18
+SLSetAuthenticationData hr=0xc0020012
+```
+
+Conclusion: the missing state is not merely the OSPP plugin registry skeleton.
+Next candidates are the large binary values under
+`OfficeSoftwareProtectionPlatform\data\8fcc4cd6-...`, fuller `osppsvc` service
+registration/state, or an OSPPSVC code path that treats some missing file or
+registry value as fatal and tears down the RPC interface.
