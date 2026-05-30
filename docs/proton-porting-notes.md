@@ -72,12 +72,14 @@ ValveSoftware/wine@1729f00e17e879f98f9df1f2bca86bc5d21a65df
 ```
 
 Porting note: newer Wine generates the ntdll syscall tables from
-`ntdll.spec`, so this patch does not carry over the old Wine 8.0.1 manual
-edits to `dlls/ntdll/unix/loader.c` or generated `dlls/wow64/syscall.h`.
-Instead it changes:
+`ntdll.spec`, so this patch does not carry over the old Wine 8.0.1 generated
+`dlls/wow64/syscall.h` edit. It does still need a small
+`dlls/ntdll/unix/loader.c` declaration for the generated syscall table to
+compile cleanly. The port changes:
 
 - `dlls/rpcrt4/rpc_transport.c`
 - `dlls/ntdll/unix/file.c`
+- `dlls/ntdll/unix/loader.c`
 - `dlls/ntdll/ntdll.spec`
 - `dlls/wow64/file.c`
 
@@ -97,7 +99,24 @@ git -C /home/mars-user/office-open-repro/valve-wine-ge10-src apply --check --rev
 
 ## Next Proton step
 
-Build a Proton-compatible Wine runtime from the patched
-`ValveSoftware/wine@1729f00e17e879f98f9df1f2bca86bc5d21a65df` source, then
-rerun the existing GE-Proton10 WOW64 Office install. The expected test is that
-the ODT pass moves beyond the current AppV/C2R RPC `0x6d3` failure.
+The patched 64-bit Wine side now builds and installs to:
+
+```text
+/home/mars-user/office-open-repro/valve-wine-ge10-install
+```
+
+Build notes:
+
+- `dlls/ntdll/unix/loader.c` needed
+  `extern typeof(NtReadFile) __wine_rpc_NtReadFile;`.
+- The local Ubuntu GStreamer headers did not match GE-Proton10-34's
+  `winegstreamer/media-converter` code, so the x64 build was configured with
+  `--without-gstreamer`.
+- `libsdl2-dev` was needed before `winebus.sys` linked cleanly.
+- Verified installed symbols:
+  `ntdll.so` contains local `__wine_rpc_NtReadFile`, and `rpcrt4.dll` imports
+  and exports `__wine_rpc_NtReadFile`.
+
+Next, build/install the matching 32-bit side for WOW64, then rerun the existing
+GE-Proton10 WOW64 Office install. The expected test is that the ODT pass moves
+beyond the current AppV/C2R RPC `0x6d3` failure.

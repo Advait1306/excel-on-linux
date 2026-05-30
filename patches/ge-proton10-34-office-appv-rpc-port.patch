@@ -28,6 +28,19 @@ index c6d5a3d0c4..7e2b2d9059 100644
  /******************************************************************************
   *              NtReadFile   (NTDLL.@)
   */
+diff --git a/dlls/ntdll/unix/loader.c b/dlls/ntdll/unix/loader.c
+index 140a86c298..fd42a4db48 100644
+--- a/dlls/ntdll/unix/loader.c
++++ b/dlls/ntdll/unix/loader.c
+@@ -121,6 +121,8 @@ void *pRtlUserThreadStart = NULL;
+ void *p__wine_ctrl_routine = NULL;
+ SYSTEM_DLL_INIT_BLOCK *pLdrSystemDllInitBlock = NULL;
+ 
++extern typeof(NtReadFile) __wine_rpc_NtReadFile;
++
+ static void * const syscalls[] =
+ {
+ #define SYSCALL_ENTRY(id,name,args) name,
 diff --git a/dlls/rpcrt4/rpc_transport.c b/dlls/rpcrt4/rpc_transport.c
 index 8d53e7cee3..f6f712c1f5 100644
 --- a/dlls/rpcrt4/rpc_transport.c
