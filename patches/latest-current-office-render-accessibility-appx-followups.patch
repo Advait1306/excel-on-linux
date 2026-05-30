@@ -1435,11 +1435,206 @@ index 2deacc1cb1..3335a74c74 100644
      else if (!strcmp(lpszStructType, szOID_CRL_DIST_POINTS))
          decodeFunc = CRYPT_AsnDecodeCRLDistPoints;
      else if (!strcmp(lpszStructType, szOID_CERT_POLICIES))
+diff --git a/dlls/kernel32/kernel32.spec b/dlls/kernel32/kernel32.spec
+index 4634363505..f1b62f69dd 100644
+--- a/dlls/kernel32/kernel32.spec
++++ b/dlls/kernel32/kernel32.spec
+@@ -505,13 +505,14 @@
+ @ stdcall -import FindFirstVolumeW(ptr long)
+ @ stdcall -import FindNextChangeNotification(long)
+ @ stdcall -import FindNextFileA(long ptr)
+-# @ stub FindNextFileNameW
++@ stdcall -import FindNextFileNameW(long ptr ptr)
+ @ stdcall -import FindNextFileW(long ptr)
+ @ stdcall -import FindNextStreamW(long ptr)
+ @ stdcall FindNextVolumeA(long ptr long)
+ @ stub FindNextVolumeMountPointA
+ @ stub FindNextVolumeMountPointW
+ @ stdcall -import FindNextVolumeW(long ptr long)
++@ stdcall -import FindPackagesByPackageFamily(wstr long ptr ptr ptr ptr ptr)
+ @ stdcall -import FindNLSString(long long wstr long wstr long ptr)
+ @ stdcall -import FindNLSStringEx(wstr long wstr long wstr long ptr ptr ptr long)
+ @ stdcall FindResourceA(long str str)
+@@ -1444,7 +1445,7 @@
+ @ stdcall -import SetFilePointer(long long ptr long)
+ @ stdcall -import SetFilePointerEx(long int64 ptr long)
+ # @ stub SetFileShortNameA
+-# @ stub SetFileShortNameW
++@ stdcall -import SetFileShortNameW(ptr wstr)
+ @ stdcall -import SetFileTime(long ptr ptr ptr)
+ @ stdcall -import SetFileValidData(ptr int64)
+ @ stdcall SetFirmwareEnvironmentVariableA(str str ptr long)
+diff --git a/dlls/kernelbase/file.c b/dlls/kernelbase/file.c
+index 605538cdc0..e19677d9b9 100644
+--- a/dlls/kernelbase/file.c
++++ b/dlls/kernelbase/file.c
+@@ -1440,6 +1440,16 @@ HANDLE WINAPI FindFirstFileNameW( const WCHAR *file_name, DWORD flags, DWORD *le
+     return INVALID_HANDLE_VALUE;
+ }
+ 
++/******************************************************************************
++ *     FindNextFileNameW   (kernelbase.@)
++ */
++BOOL WINAPI FindNextFileNameW( HANDLE handle, DWORD *len, WCHAR *link_name )
++{
++    FIXME( "(%p, %p, %p): stub!\n", handle, len, link_name );
++    SetLastError( ERROR_HANDLE_EOF );
++    return FALSE;
++}
++
+ /**************************************************************************
+  *	FindFirstStreamW   (kernelbase.@)
+  */
+@@ -3892,6 +3902,16 @@ BOOL WINAPI DECLSPEC_HOTPATCH SetFileTime( HANDLE file, const FILETIME *ctime,
+ }
+ 
+ 
++/***********************************************************************
++ *	SetFileShortNameW   (kernelbase.@)
++ */
++BOOL WINAPI DECLSPEC_HOTPATCH SetFileShortNameW( HANDLE file, const WCHAR *short_name )
++{
++    FIXME( "%p %s semi-stub\n", file, debugstr_w(short_name) );
++    return TRUE;
++}
++
++
+ /***********************************************************************
+  *	SetFileValidData   (kernelbase.@)
+  */
+diff --git a/dlls/kernelbase/kernelbase.spec b/dlls/kernelbase/kernelbase.spec
+index 7a2e36f0d0..a9b7c290e5 100644
+--- a/dlls/kernelbase/kernelbase.spec
++++ b/dlls/kernelbase/kernelbase.spec
+@@ -374,11 +374,11 @@
+ @ stdcall FindNLSStringEx(wstr long wstr long wstr long ptr ptr ptr long)
+ @ stdcall FindNextChangeNotification(long)
+ @ stdcall FindNextFileA(long ptr)
+-# @ stub FindNextFileNameW
++@ stdcall FindNextFileNameW(long ptr ptr)
+ @ stdcall FindNextFileW(long ptr)
+ @ stdcall FindNextStreamW(long ptr)
+ @ stdcall FindNextVolumeW(long ptr long)
+-# @ stub FindPackagesByPackageFamily
++@ stdcall FindPackagesByPackageFamily(wstr long ptr ptr ptr ptr ptr)
+ @ stdcall FindResourceExW(long wstr wstr long)
+ @ stdcall FindResourceW(long wstr wstr)
+ @ stdcall FindStringOrdinal(long wstr long wstr long long)
+@@ -1485,6 +1485,7 @@
+ @ stdcall SetFilePointer(long long ptr long)
+ @ stdcall SetFilePointerEx(long int64 ptr long)
+ @ stdcall SetFileSecurityW(wstr long ptr)
++@ stdcall SetFileShortNameW(ptr wstr)
+ @ stdcall SetFileTime(long ptr ptr ptr)
+ @ stdcall SetFileValidData(ptr int64)
+ @ stdcall SetHandleCount(long)
+diff --git a/dlls/kernelbase/version.c b/dlls/kernelbase/version.c
+index 17b414128b..b4a17104d8 100644
+--- a/dlls/kernelbase/version.c
++++ b/dlls/kernelbase/version.c
+@@ -1811,6 +1811,27 @@ LONG WINAPI PackageFullNameFromId(const PACKAGE_ID *package_id, UINT32 *length,
+ }
+ 
+ 
++/***********************************************************************
++ *         FindPackagesByPackageFamily   (kernelbase.@)
++ */
++LONG WINAPI FindPackagesByPackageFamily(const WCHAR *family_name, UINT32 filters, UINT32 *count,
++        WCHAR **full_names, UINT32 *buffer_length, WCHAR *buffer, UINT32 *properties)
++{
++    FIXME("family_name %s, filters %#x, count %p, full_names %p, buffer_length %p, buffer %p, properties %p semi-stub.\n",
++            debugstr_w(family_name), filters, count, full_names, buffer_length, buffer, properties);
++
++    if (!buffer_length || !count || !family_name)
++        return ERROR_INVALID_PARAMETER;
++
++    if ((*buffer_length || *count) && (!full_names || !buffer))
++        return ERROR_INVALID_PARAMETER;
++
++    *count = 0;
++    *buffer_length = 0;
++    return ERROR_SUCCESS;
++}
++
++
+ /***********************************************************************
+  *         GetPackagesByPackageFamily   (kernelbase.@)
+  */
+diff --git a/dlls/ntdll/ntdll.spec b/dlls/ntdll/ntdll.spec
+index a2b80a4551..164a9bffec 100644
+--- a/dlls/ntdll/ntdll.spec
++++ b/dlls/ntdll/ntdll.spec
+@@ -663,7 +663,7 @@
+ @ stdcall RtlEnterCriticalSection(ptr)
+ @ stub RtlEnumProcessHeaps
+ @ stub RtlEnumerateGenericTable
+-# @ stub RtlEnumerateGenericTableAvl
++@ stdcall RtlEnumerateGenericTableAvl(ptr long)
+ # @ stub RtlEnumerateGenericTableLikeADirectory
+ @ stdcall RtlEnumerateGenericTableWithoutSplaying(ptr ptr)
+ @ stdcall RtlEnumerateGenericTableWithoutSplayingAvl(ptr ptr)
+@@ -860,7 +860,8 @@
+ @ stdcall RtlIsDosDeviceName_U(wstr)
+ @ stdcall -arch=x86_64 -norelay RtlIsEcCode(ptr)
+ @ stub RtlIsGenericTableEmpty
+-# @ stub RtlIsGenericTableEmptyAvl
++@ stdcall RtlIsGenericTableEmptyAvl(ptr)
++@ stdcall RtlIsNameInExpression(ptr ptr long ptr)
+ @ stdcall RtlIsNameLegalDOS8Dot3(ptr ptr ptr)
+ @ stdcall RtlIsNormalizedString(long wstr long ptr)
+ @ stdcall RtlIsProcessorFeaturePresent(long)
+@@ -1770,3 +1771,6 @@
+ # Filesystem
+ @ stdcall -syscall wine_nt_to_unix_file_name(ptr ptr ptr long)
+ @ stdcall -syscall wine_unix_to_nt_file_name(str ptr ptr)
++
++# CW HACK 14391
++@ stdcall -syscall __wine_rpc_NtReadFile(long long ptr ptr ptr ptr long ptr ptr)
+diff --git a/dlls/ntdll/rtl.c b/dlls/ntdll/rtl.c
+index 732b819c15..a865de75ca 100644
+--- a/dlls/ntdll/rtl.c
++++ b/dlls/ntdll/rtl.c
+@@ -1049,6 +1049,35 @@ void * WINAPI RtlEnumerateGenericTableWithoutSplayingAvl(RTL_AVL_TABLE *table, P
+     return NULL;
+ }
+ 
++/******************************************************************************
++ *           RtlEnumerateGenericTableAvl  (NTDLL.@)
++ */
++void * WINAPI RtlEnumerateGenericTableAvl(RTL_AVL_TABLE *table, BOOLEAN restart)
++{
++    FIXME("(%p, %u) stub!\n", table, restart);
++    return NULL;
++}
++
++/******************************************************************************
++ *           RtlIsGenericTableEmptyAvl  (NTDLL.@)
++ */
++BOOLEAN WINAPI RtlIsGenericTableEmptyAvl(RTL_AVL_TABLE *table)
++{
++    FIXME("(%p) stub!\n", table);
++    return TRUE;
++}
++
++/******************************************************************************
++ *           RtlIsNameInExpression  (NTDLL.@)
++ */
++BOOLEAN WINAPI RtlIsNameInExpression(PUNICODE_STRING expression, PUNICODE_STRING name,
++                                     BOOLEAN ignore_case, WCHAR *upcase_table)
++{
++    FIXME("(%s, %s, %u, %p) stub!\n", debugstr_us(expression), debugstr_us(name),
++          ignore_case, upcase_table);
++    return FALSE;
++}
++
+ /******************************************************************************
+  *  RtlNumberGenericTableElementsAvl  (NTDLL.@)
+  */
 diff --git a/dlls/sppc/sppc.c b/dlls/sppc/sppc.c
-index 8819961d7c..e41eecd0d5 100644
+index 8819961d7c..8ee8bbc914 100644
 --- a/dlls/sppc/sppc.c
 +++ b/dlls/sppc/sppc.c
-@@ -31,12 +31,418 @@
+@@ -31,12 +31,434 @@
  
  WINE_DEFAULT_DEBUG_CHANNEL(slc);
  
@@ -1774,6 +1969,7 @@ index 8819961d7c..e41eecd0d5 100644
 +{
 +    DWORD value;
 +    const WCHAR *string_value;
++    WCHAR env[4];
 +
 +    FIXME("(%p %s %p %p %p) stub\n", handle, debugstr_w(name), type, size, data);
 +
@@ -1782,6 +1978,13 @@ index 8819961d7c..e41eecd0d5 100644
 +
 +    if (!wcscmp(name, L"*"))
 +        return return_policy_name_list(type, size, data);
++
++    if (!wcsncmp(name, L"office-", lstrlenW(L"office-")) &&
++        GetEnvironmentVariableW(L"OFFICE_SPP_EMPTY_OFFICE_POLICIES", env, ARRAY_SIZE(env)))
++    {
++        FIXME("returning diagnostic empty string for Office policy %s.\n", debugstr_w(name));
++        return return_string_policy(type, size, data, L"");
++    }
 +
 +    if (get_known_office_dword_policy(name, &value))
 +        return return_dword_policy(type, size, data, value);
@@ -1826,6 +2029,7 @@ index 8819961d7c..e41eecd0d5 100644
 +{
 +    DWORD value;
 +    const WCHAR *string_value;
++    WCHAR env[4];
 +
 +    FIXME("(%p %s %p %p %p) stub\n", context, debugstr_w(name), type, size, data);
 +
@@ -1834,6 +2038,13 @@ index 8819961d7c..e41eecd0d5 100644
 +
 +    if (!wcscmp(name, L"*"))
 +        return return_policy_name_list(type, size, data);
++
++    if (!wcsncmp(name, L"office-", lstrlenW(L"office-")) &&
++        GetEnvironmentVariableW(L"OFFICE_SPP_EMPTY_OFFICE_POLICIES", env, ARRAY_SIZE(env)))
++    {
++        FIXME("returning diagnostic empty string for Office application policy %s.\n", debugstr_w(name));
++        return return_string_policy(type, size, data, L"");
++    }
 +
 +    if (get_known_office_dword_policy(name, &value))
 +        return return_dword_policy(type, size, data, value);
@@ -1952,6 +2163,19 @@ index 1e146493aa..8017755565 100644
      return FALSE;
  }
  
+diff --git a/include/appmodel.h b/include/appmodel.h
+index cab001f60c..ab7909c69f 100644
+--- a/include/appmodel.h
++++ b/include/appmodel.h
+@@ -90,6 +90,8 @@ LONG WINAPI AppPolicyGetShowDeveloperDiagnostic(HANDLE token, AppPolicyShowDevel
+ LONG WINAPI AppPolicyGetThreadInitializationType(HANDLE token, AppPolicyThreadInitializationType *policy);
+ LONG WINAPI AppPolicyGetWindowingModel(HANDLE processToken, AppPolicyWindowingModel *policy);
+ LONG WINAPI GetPackagePath(const PACKAGE_ID *package_id, const UINT32 reserved, UINT32 *length, WCHAR *path);
++LONG WINAPI FindPackagesByPackageFamily(const WCHAR *family_name, UINT32 filters, UINT32 *count,
++        WCHAR **full_names, UINT32 *buffer_length, WCHAR *buffer, UINT32 *properties);
+ LONG WINAPI GetPackagesByPackageFamily(const WCHAR *family_name, UINT32 *count, WCHAR **full_names,
+         UINT32 *buffer_length, WCHAR *buffer);
+ LONG WINAPI PackageFullNameFromId(const PACKAGE_ID *package_id, UINT32 *length, WCHAR *full_name);
 diff --git a/include/slerror.h b/include/slerror.h
 index 4980a96e73..0398eed7aa 100644
 --- a/include/slerror.h
