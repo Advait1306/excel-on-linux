@@ -1,3 +1,16 @@
+diff --git a/dlls/advapi32/eventlog.c b/dlls/advapi32/eventlog.c
+index 46300bd9e6..c2b4b3640a 100644
+--- a/dlls/advapi32/eventlog.c
++++ b/dlls/advapi32/eventlog.c
+@@ -645,6 +645,8 @@ BOOL WINAPI ReportEventW( HANDLE hEventLog, WORD wType, WORD wCategory, DWORD dw
+     {
+         const WCHAR *line = lpStrings[i];
+ 
++        FIXME("event string[%u]: %s\n", i, debugstr_w(line));
++
+         while (*line)
+         {
+             const WCHAR *next = wcschr( line, '\n' );
 diff --git a/dlls/appxdeploymentclient/classes.idl b/dlls/appxdeploymentclient/classes.idl
 index edef0414d2..2e58f4c5a6 100644
 --- a/dlls/appxdeploymentclient/classes.idl
@@ -45,10 +58,18 @@ index 7efbf96ea7..acdc9196a3 100644
      return CLASS_E_CLASSNOTAVAILABLE;
  }
 diff --git a/dlls/appxdeploymentclient/package.c b/dlls/appxdeploymentclient/package.c
-index 50dcb0f928..360b3407b1 100644
+index 50dcb0f928..145e07aad0 100644
 --- a/dlls/appxdeploymentclient/package.c
 +++ b/dlls/appxdeploymentclient/package.c
-@@ -26,6 +26,15 @@ struct package_manager
+@@ -18,6 +18,7 @@
+  */
+ 
+ #include "private.h"
++#include "asyncinfo.h"
+ #include "wine/debug.h"
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(appx);
+@@ -26,12 +27,742 @@ struct package_manager
  {
      IPackageManager IPackageManager_iface;
      IPackageManager2 IPackageManager2_iface;
@@ -64,10 +85,12 @@ index 50dcb0f928..360b3407b1 100644
      LONG ref;
  };
  
-@@ -34,6 +43,391 @@ static inline struct package_manager *impl_from_IPackageManager( IPackageManager
-     return CONTAINING_RECORD( iface, struct package_manager, IPackageManager_iface );
- }
- 
+ static inline struct package_manager *impl_from_IPackageManager( IPackageManager *iface )
+ {
+-    return CONTAINING_RECORD( iface, struct package_manager, IPackageManager_iface );
++    return CONTAINING_RECORD( iface, struct package_manager, IPackageManager_iface );
++}
++
 +static inline struct empty_package_iterable *impl_from_IIterable_Package( IIterable_Package *iface )
 +{
 +    return CONTAINING_RECORD( iface, struct empty_package_iterable, IIterable_Package_iface );
@@ -453,10 +476,344 @@ index 50dcb0f928..360b3407b1 100644
 +    return S_OK;
 +}
 +
++struct deployment_async
++{
++    IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress IAsyncOperationWithProgress_iface;
++    IAsyncInfo IAsyncInfo_iface;
++    IDeploymentResult IDeploymentResult_iface;
++    LONG ref;
++    BOOL closed;
++};
++
++static inline struct deployment_async *impl_from_IAsyncOperationWithProgress( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress *iface )
++{
++    return CONTAINING_RECORD( iface, struct deployment_async, IAsyncOperationWithProgress_iface );
++}
++
++static inline struct deployment_async *impl_from_IAsyncInfo( IAsyncInfo *iface )
++{
++    return CONTAINING_RECORD( iface, struct deployment_async, IAsyncInfo_iface );
++}
++
++static inline struct deployment_async *impl_from_IDeploymentResult( IDeploymentResult *iface )
++{
++    return CONTAINING_RECORD( iface, struct deployment_async, IDeploymentResult_iface );
++}
++
++static HRESULT WINAPI deployment_async_QueryInterface( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress *iface,
++        REFIID iid, void **out )
++{
++    struct deployment_async *impl = impl_from_IAsyncOperationWithProgress( iface );
++
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress ))
++    {
++        *out = &impl->IAsyncOperationWithProgress_iface;
++        IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress_AddRef( *out );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_IAsyncInfo ))
++    {
++        *out = &impl->IAsyncInfo_iface;
++        IAsyncInfo_AddRef( *out );
++        return S_OK;
++    }
++
++    *out = NULL;
++    FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
++    return E_NOINTERFACE;
++}
++
++static ULONG WINAPI deployment_async_AddRef( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress *iface )
++{
++    struct deployment_async *impl = impl_from_IAsyncOperationWithProgress( iface );
++    return InterlockedIncrement( &impl->ref );
++}
++
++static ULONG WINAPI deployment_async_Release( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress *iface )
++{
++    struct deployment_async *impl = impl_from_IAsyncOperationWithProgress( iface );
++    ULONG ref = InterlockedDecrement( &impl->ref );
++
++    if (!ref) free( impl );
++    return ref;
++}
++
++static HRESULT WINAPI deployment_async_GetIids( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress *iface,
++        ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI deployment_async_GetRuntimeClassName( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress *iface,
++        HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p stub!\n", iface, class_name );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI deployment_async_GetTrustLevel( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress *iface,
++        TrustLevel *trust_level )
++{
++    if (!trust_level) return E_POINTER;
++    *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI deployment_async_put_Progress( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress *iface,
++        IAsyncOperationProgressHandler_DeploymentResult_DeploymentProgress *handler )
++{
++    DeploymentProgress progress = {DeploymentProgressState_Processing, 100};
++
++    FIXME( "iface %p, handler %p semi-stub.\n", iface, handler );
++
++    if (handler)
++        IAsyncOperationProgressHandler_DeploymentResult_DeploymentProgress_Invoke( handler, iface, progress );
++    return S_OK;
++}
++
++static HRESULT WINAPI deployment_async_get_Progress( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress *iface,
++        IAsyncOperationProgressHandler_DeploymentResult_DeploymentProgress **handler )
++{
++    if (!handler) return E_POINTER;
++    *handler = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI deployment_async_put_Completed( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress *iface,
++        IAsyncOperationWithProgressCompletedHandler_DeploymentResult_DeploymentProgress *handler )
++{
++    FIXME( "iface %p, handler %p semi-stub.\n", iface, handler );
++
++    if (handler)
++        IAsyncOperationWithProgressCompletedHandler_DeploymentResult_DeploymentProgress_Invoke( handler, iface, Completed );
++    return S_OK;
++}
++
++static HRESULT WINAPI deployment_async_get_Completed( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress *iface,
++        IAsyncOperationWithProgressCompletedHandler_DeploymentResult_DeploymentProgress **handler )
++{
++    if (!handler) return E_POINTER;
++    *handler = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI deployment_async_GetResults( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress *iface,
++        IDeploymentResult **results )
++{
++    struct deployment_async *impl = impl_from_IAsyncOperationWithProgress( iface );
++
++    if (!results) return E_POINTER;
++    *results = &impl->IDeploymentResult_iface;
++    IDeploymentResult_AddRef( *results );
++    return S_OK;
++}
++
++static const struct IAsyncOperationWithProgress_DeploymentResult_DeploymentProgressVtbl deployment_async_vtbl =
++{
++    deployment_async_QueryInterface,
++    deployment_async_AddRef,
++    deployment_async_Release,
++    deployment_async_GetIids,
++    deployment_async_GetRuntimeClassName,
++    deployment_async_GetTrustLevel,
++    deployment_async_put_Progress,
++    deployment_async_get_Progress,
++    deployment_async_put_Completed,
++    deployment_async_get_Completed,
++    deployment_async_GetResults,
++};
++
++static HRESULT WINAPI deployment_async_info_QueryInterface( IAsyncInfo *iface, REFIID iid, void **out )
++{
++    struct deployment_async *impl = impl_from_IAsyncInfo( iface );
++    return IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress_QueryInterface(
++            &impl->IAsyncOperationWithProgress_iface, iid, out );
++}
++
++static ULONG WINAPI deployment_async_info_AddRef( IAsyncInfo *iface )
++{
++    struct deployment_async *impl = impl_from_IAsyncInfo( iface );
++    return IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress_AddRef( &impl->IAsyncOperationWithProgress_iface );
++}
++
++static ULONG WINAPI deployment_async_info_Release( IAsyncInfo *iface )
++{
++    struct deployment_async *impl = impl_from_IAsyncInfo( iface );
++    return IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress_Release( &impl->IAsyncOperationWithProgress_iface );
++}
++
++static HRESULT WINAPI deployment_async_info_GetIids( IAsyncInfo *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI deployment_async_info_GetRuntimeClassName( IAsyncInfo *iface, HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p stub!\n", iface, class_name );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI deployment_async_info_GetTrustLevel( IAsyncInfo *iface, TrustLevel *trust_level )
++{
++    if (!trust_level) return E_POINTER;
++    *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI deployment_async_info_get_Id( IAsyncInfo *iface, UINT32 *id )
++{
++    if (!id) return E_POINTER;
++    *id = 1;
++    return S_OK;
++}
++
++static HRESULT WINAPI deployment_async_info_get_Status( IAsyncInfo *iface, AsyncStatus *status )
++{
++    if (!status) return E_POINTER;
++    *status = Completed;
++    return S_OK;
++}
++
++static HRESULT WINAPI deployment_async_info_get_ErrorCode( IAsyncInfo *iface, HRESULT *error_code )
++{
++    if (!error_code) return E_POINTER;
++    *error_code = S_OK;
++    return S_OK;
++}
++
++static HRESULT WINAPI deployment_async_info_Cancel( IAsyncInfo *iface )
++{
++    return S_OK;
++}
++
++static HRESULT WINAPI deployment_async_info_Close( IAsyncInfo *iface )
++{
++    struct deployment_async *impl = impl_from_IAsyncInfo( iface );
++    impl->closed = TRUE;
++    return S_OK;
++}
++
++static const struct IAsyncInfoVtbl deployment_async_info_vtbl =
++{
++    deployment_async_info_QueryInterface,
++    deployment_async_info_AddRef,
++    deployment_async_info_Release,
++    deployment_async_info_GetIids,
++    deployment_async_info_GetRuntimeClassName,
++    deployment_async_info_GetTrustLevel,
++    deployment_async_info_get_Id,
++    deployment_async_info_get_Status,
++    deployment_async_info_get_ErrorCode,
++    deployment_async_info_Cancel,
++    deployment_async_info_Close,
++};
++
++static HRESULT WINAPI deployment_result_QueryInterface( IDeploymentResult *iface, REFIID iid, void **out )
++{
++    struct deployment_async *impl = impl_from_IDeploymentResult( iface );
++
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IDeploymentResult ))
++    {
++        *out = &impl->IDeploymentResult_iface;
++        IDeploymentResult_AddRef( *out );
++        return S_OK;
++    }
++
++    *out = NULL;
++    return E_NOINTERFACE;
++}
++
++static ULONG WINAPI deployment_result_AddRef( IDeploymentResult *iface )
++{
++    struct deployment_async *impl = impl_from_IDeploymentResult( iface );
++    return IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress_AddRef( &impl->IAsyncOperationWithProgress_iface );
++}
++
++static ULONG WINAPI deployment_result_Release( IDeploymentResult *iface )
++{
++    struct deployment_async *impl = impl_from_IDeploymentResult( iface );
++    return IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress_Release( &impl->IAsyncOperationWithProgress_iface );
++}
++
++static HRESULT WINAPI deployment_result_GetIids( IDeploymentResult *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI deployment_result_GetRuntimeClassName( IDeploymentResult *iface, HSTRING *class_name )
++{
++    return WindowsCreateString( RuntimeClass_Windows_Management_Deployment_DeploymentResult,
++                                ARRAY_SIZE(RuntimeClass_Windows_Management_Deployment_DeploymentResult) - 1, class_name );
++}
++
++static HRESULT WINAPI deployment_result_GetTrustLevel( IDeploymentResult *iface, TrustLevel *trust_level )
++{
++    if (!trust_level) return E_POINTER;
++    *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI deployment_result_get_ErrorText( IDeploymentResult *iface, HSTRING *value )
++{
++    if (!value) return E_POINTER;
++    return WindowsCreateString( L"", 0, value );
++}
++
++static HRESULT WINAPI deployment_result_get_ActivityId( IDeploymentResult *iface, GUID *value )
++{
++    if (!value) return E_POINTER;
++    memset( value, 0, sizeof(*value) );
++    return S_OK;
++}
++
++static HRESULT WINAPI deployment_result_get_ExtendedErrorCode( IDeploymentResult *iface, HRESULT *value )
++{
++    if (!value) return E_POINTER;
++    *value = S_OK;
++    return S_OK;
++}
++
++static const struct IDeploymentResultVtbl deployment_result_vtbl =
++{
++    deployment_result_QueryInterface,
++    deployment_result_AddRef,
++    deployment_result_Release,
++    deployment_result_GetIids,
++    deployment_result_GetRuntimeClassName,
++    deployment_result_GetTrustLevel,
++    deployment_result_get_ErrorText,
++    deployment_result_get_ActivityId,
++    deployment_result_get_ExtendedErrorCode,
++};
++
++static HRESULT create_completed_deployment_async( IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress **operation )
++{
++    struct deployment_async *impl;
++
++    if (!operation) return E_POINTER;
++    if (!(impl = calloc( 1, sizeof(*impl) ))) return E_OUTOFMEMORY;
++
++    impl->IAsyncOperationWithProgress_iface.lpVtbl = &deployment_async_vtbl;
++    impl->IAsyncInfo_iface.lpVtbl = &deployment_async_info_vtbl;
++    impl->IDeploymentResult_iface.lpVtbl = &deployment_result_vtbl;
++    impl->ref = 1;
++
++    *operation = &impl->IAsyncOperationWithProgress_iface;
++    return S_OK;
+ }
+ 
  static HRESULT WINAPI package_manager_QueryInterface( IPackageManager *iface, REFIID iid, void **out )
- {
-     struct package_manager *impl = impl_from_IPackageManager( iface );
-@@ -57,6 +451,20 @@ static HRESULT WINAPI package_manager_QueryInterface( IPackageManager *iface, RE
+@@ -57,6 +788,20 @@ static HRESULT WINAPI package_manager_QueryInterface( IPackageManager *iface, RE
          return S_OK;
      }
  
@@ -477,7 +834,7 @@ index 50dcb0f928..360b3407b1 100644
      FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
      *out = NULL;
      return E_NOINTERFACE;
-@@ -136,14 +544,14 @@ static HRESULT WINAPI package_manager_RegisterPackageAsync( IPackageManager *ifa
+@@ -136,14 +881,14 @@ static HRESULT WINAPI package_manager_RegisterPackageAsync( IPackageManager *ifa
  
  static HRESULT WINAPI package_manager_FindPackages( IPackageManager *iface, IIterable_Package **packages )
  {
@@ -496,7 +853,7 @@ index 50dcb0f928..360b3407b1 100644
  }
  
  static HRESULT WINAPI package_manager_FindPackagesByNamePublisher( IPackageManager *iface, HSTRING name, HSTRING publisher, IIterable_Package **packages )
-@@ -151,14 +559,14 @@ static HRESULT WINAPI package_manager_FindPackagesByNamePublisher( IPackageManag
+@@ -151,14 +896,14 @@ static HRESULT WINAPI package_manager_FindPackagesByNamePublisher( IPackageManag
      FIXME( "iface %p, name %s, publisher %s, packages %p stub!\n", iface, debugstr_hstring(name), debugstr_hstring(publisher), packages );
  
      if (!name || !publisher) return E_INVALIDARG;
@@ -514,7 +871,7 @@ index 50dcb0f928..360b3407b1 100644
  }
  
  static HRESULT WINAPI package_manager_FindUsers( IPackageManager *iface, HSTRING name, IIterable_PackageUserInformation **users )
-@@ -189,15 +597,15 @@ static HRESULT WINAPI package_manager_CleanupPackageForUserAsync( IPackageManage
+@@ -189,15 +934,15 @@ static HRESULT WINAPI package_manager_CleanupPackageForUserAsync( IPackageManage
  static HRESULT WINAPI package_manager_FindPackagesByPackageFamilyName( IPackageManager *iface, HSTRING family_name,
      IIterable_Package **packages )
  {
@@ -534,7 +891,7 @@ index 50dcb0f928..360b3407b1 100644
  }
  
  static HRESULT WINAPI package_manager_FindPackageByUserSecurityIdPackageFullName( IPackageManager *iface, HSTRING sid, HSTRING name, IPackage **package )
-@@ -259,43 +667,43 @@ static HRESULT WINAPI package_manager2_RegisterPackageByFullNameAsync( IPackageM
+@@ -259,43 +1004,43 @@ static HRESULT WINAPI package_manager2_RegisterPackageByFullNameAsync( IPackageM
  
  static HRESULT WINAPI package_manager2_FindPackagesWithPackageTypes( IPackageManager2 *iface, PackageTypes types, IIterable_Package **packages )
  {
@@ -590,7 +947,7 @@ index 50dcb0f928..360b3407b1 100644
  }
  
  static HRESULT WINAPI package_manager2_StageUserDataAsync( IPackageManager2 *iface, HSTRING name,
-@@ -327,6 +735,244 @@ static const struct IPackageManager2Vtbl package_manager2_vtbl =
+@@ -327,6 +1072,240 @@ static const struct IPackageManager2Vtbl package_manager2_vtbl =
      package_manager2_StageUserDataAsync,
  };
  
@@ -761,30 +1118,26 @@ index 50dcb0f928..360b3407b1 100644
 +
 +static HRESULT WINAPI package_manager9_AddPackageByUriAsync( IInspectable *iface, IUriRuntimeClass *uri, IInspectable *options, void **operation )
 +{
-+    FIXME( "iface %p, uri %p, options %p, operation %p stub!\n", iface, uri, options, operation );
-+    if (operation) *operation = NULL;
-+    return E_NOTIMPL;
++    FIXME( "iface %p, uri %p, options %p, operation %p semi-stub returning completed operation.\n", iface, uri, options, operation );
++    return create_completed_deployment_async( (IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress **)operation );
 +}
 +
 +static HRESULT WINAPI package_manager9_StagePackageByUriAsync( IInspectable *iface, IUriRuntimeClass *uri, IInspectable *options, void **operation )
 +{
-+    FIXME( "iface %p, uri %p, options %p, operation %p stub!\n", iface, uri, options, operation );
-+    if (operation) *operation = NULL;
-+    return E_NOTIMPL;
++    FIXME( "iface %p, uri %p, options %p, operation %p semi-stub returning completed operation.\n", iface, uri, options, operation );
++    return create_completed_deployment_async( (IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress **)operation );
 +}
 +
 +static HRESULT WINAPI package_manager9_RegisterPackageByUriAsync( IInspectable *iface, IUriRuntimeClass *uri, IInspectable *options, void **operation )
 +{
-+    FIXME( "iface %p, uri %p, options %p, operation %p stub!\n", iface, uri, options, operation );
-+    if (operation) *operation = NULL;
-+    return E_NOTIMPL;
++    FIXME( "iface %p, uri %p, options %p, operation %p semi-stub returning completed operation.\n", iface, uri, options, operation );
++    return create_completed_deployment_async( (IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress **)operation );
 +}
 +
 +static HRESULT WINAPI package_manager9_RegisterPackagesByFullNameAsync( IInspectable *iface, IIterable_HSTRING *names, IInspectable *options, void **operation )
 +{
-+    FIXME( "iface %p, names %p, options %p, operation %p stub!\n", iface, names, options, operation );
-+    if (operation) *operation = NULL;
-+    return E_NOTIMPL;
++    FIXME( "iface %p, names %p, options %p, operation %p semi-stub returning completed operation.\n", iface, names, options, operation );
++    return create_completed_deployment_async( (IAsyncOperationWithProgress_DeploymentResult_DeploymentProgress **)operation );
 +}
 +
 +static HRESULT WINAPI package_manager9_SetPackageStubPreference( IInspectable *iface, HSTRING name, int preference )
@@ -835,7 +1188,7 @@ index 50dcb0f928..360b3407b1 100644
  struct package_manager_statics
  {
      IActivationFactory IActivationFactory_iface;
-@@ -346,6 +992,7 @@ static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID
+@@ -346,6 +1325,7 @@ static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID
  
      if (IsEqualGUID( iid, &IID_IUnknown ) ||
          IsEqualGUID( iid, &IID_IInspectable ) ||
@@ -843,7 +1196,7 @@ index 50dcb0f928..360b3407b1 100644
          IsEqualGUID( iid, &IID_IActivationFactory ))
      {
          *out = &impl->IActivationFactory_iface;
-@@ -406,6 +1053,8 @@ static HRESULT WINAPI factory_ActivateInstance( IActivationFactory *iface, IInsp
+@@ -406,6 +1386,8 @@ static HRESULT WINAPI factory_ActivateInstance( IActivationFactory *iface, IInsp
  
      impl->IPackageManager_iface.lpVtbl = &package_manager_vtbl;
      impl->IPackageManager2_iface.lpVtbl = &package_manager2_vtbl;
@@ -852,7 +1205,7 @@ index 50dcb0f928..360b3407b1 100644
      impl->ref = 1;
  
      *instance = (IInspectable *)&impl->IPackageManager_iface;
-@@ -432,3 +1081,102 @@ static struct package_manager_statics package_manager_statics =
+@@ -432,3 +1414,102 @@ static struct package_manager_statics package_manager_statics =
  };
  
  IActivationFactory *package_manager_factory = &package_manager_statics.IActivationFactory_iface;
@@ -967,116 +1320,198 @@ index cc35ab9d7e..78b439f2e1 100644
  
  #define DEFINE_IINSPECTABLE_( pfx, iface_type, impl_type, impl_from, iface_mem, expr )             \
      static inline impl_type *impl_from( iface_type *iface )                                        \
-diff --git a/dlls/dwrite/font.c b/dlls/dwrite/font.c
-index c400410c64..a6b5d93706 100644
---- a/dlls/dwrite/font.c
-+++ b/dlls/dwrite/font.c
-@@ -3404,9 +3404,41 @@ static HRESULT WINAPI dwritefontcollection_GetFontFromFontFace(IDWriteFontCollec
+diff --git a/dlls/sppc/sppc.c b/dlls/sppc/sppc.c
+index 8819961d7c..711e55cff0 100644
+--- a/dlls/sppc/sppc.c
++++ b/dlls/sppc/sppc.c
+@@ -31,12 +31,155 @@
  
- static HRESULT WINAPI dwritefontcollection1_GetFontSet(IDWriteFontCollection3 *iface, IDWriteFontSet **fontset)
+ WINE_DEFAULT_DEBUG_CHANNEL(slc);
+ 
++typedef PVOID HSLP;
++
++static SLID last_consumed_right;
++static BOOL has_consumed_right;
++
+ HRESULT WINAPI SLGetLicensingStatusInformation(HSLC handle, const SLID *app, const SLID *product,
+                                                LPCWSTR name, UINT *count, SL_LICENSING_STATUS **status)
  {
--    FIXME("%p, %p.\n", iface, fontset);
-+    struct dwrite_fontcollection *collection = impl_from_IDWriteFontCollection3(iface);
-+    struct dwrite_font_data **fonts = NULL;
-+    IDWriteFontSet1 *fontset1;
-+    HRESULT hr;
-+    size_t count = 0, i, j, offset = 0;
++    SL_LICENSING_STATUS *entry;
++
+     FIXME("(%p %p %p %s %p %p) stub\n", handle, app, product, debugstr_w(name), count, status );
  
--    return E_NOTIMPL;
-+    TRACE("%p, %p.\n", iface, fontset);
+-    return SL_E_RIGHT_NOT_CONSUMED;
++    if (!handle || name || !count || !status)
++        return E_INVALIDARG;
 +
-+    *fontset = NULL;
++    entry = LocalAlloc(LPTR, sizeof(*entry));
++    if (!entry)
++        return E_OUTOFMEMORY;
 +
-+    for (i = 0; i < collection->count; ++i)
-+        count += collection->family_data[i]->count;
-+
-+    if (count)
++    if (product)
++        entry->SkuId = *product;
++    else if (app)
++        entry->SkuId = *app;
++    else if (has_consumed_right)
++        entry->SkuId = last_consumed_right;
++    else
 +    {
-+        if (!(fonts = calloc(count, sizeof(*fonts))))
-+            return E_OUTOFMEMORY;
-+
-+        for (i = 0; i < collection->count; ++i)
-+        {
-+            struct dwrite_fontfamily_data *family_data = collection->family_data[i];
-+
-+            for (j = 0; j < family_data->count; ++j)
-+                fonts[offset++] = family_data->fonts[j];
-+        }
++        LocalFree(entry);
++        return SL_E_RIGHT_NOT_CONSUMED;
 +    }
++    entry->eStatus = SL_LICENSING_STATUS_IN_GRACE_PERIOD;
++    entry->dwGraceTime = 30 * 24 * 60;
++    entry->dwTotalGraceDays = 30;
++    entry->hrReason = S_OK;
 +
-+    hr = fontset_create_from_font_data(collection->factory, fonts, count, &fontset1);
-+    free(fonts);
-+    if (FAILED(hr))
-+        return hr;
-+
-+    hr = IDWriteFontSet1_QueryInterface(fontset1, &IID_IDWriteFontSet, (void **)fontset);
-+    IDWriteFontSet1_Release(fontset1);
-+    return hr;
- }
- 
- static HRESULT WINAPI dwritefontcollection1_GetFontFamily(IDWriteFontCollection3 *iface, UINT32 index,
-@@ -3469,9 +3501,18 @@ static DWRITE_FONT_FAMILY_MODEL WINAPI dwritefontcollection2_GetFontFamilyModel(
- 
- static HRESULT WINAPI dwritefontcollection2_GetFontSet(IDWriteFontCollection3 *iface, IDWriteFontSet1 **fontset)
- {
--    FIXME("%p, %p.\n", iface, fontset);
-+    IDWriteFontSet *fontset0;
-+    HRESULT hr;
- 
--    return E_NOTIMPL;
-+    TRACE("%p, %p.\n", iface, fontset);
-+
-+    *fontset = NULL;
-+    if (FAILED(hr = dwritefontcollection1_GetFontSet(iface, &fontset0)))
-+        return hr;
-+
-+    hr = IDWriteFontSet_QueryInterface(fontset0, &IID_IDWriteFontSet1, (void **)fontset);
-+    IDWriteFontSet_Release(fontset0);
-+    return hr;
- }
- 
- static HANDLE WINAPI dwritefontcollection3_GetExpirationEvent(IDWriteFontCollection3 *iface)
-diff --git a/dlls/oleacc/main.c b/dlls/oleacc/main.c
-index b2096d5d55..d00967d57f 100644
---- a/dlls/oleacc/main.c
-+++ b/dlls/oleacc/main.c
-@@ -101,6 +101,24 @@ HRESULT WINAPI CreateStdAccessibleObject( HWND hwnd, LONG idObject,
-     }
- }
- 
-+HRESULT WINAPI CreateStdAccessibleProxyW( HWND hwnd, LPCWSTR class_name, LONG idObject,
-+        REFIID riidInterface, void **ppvObject )
-+{
-+    FIXME("%p %s %ld %s %p semi-stub.\n", hwnd, debugstr_w(class_name), idObject,
-+          debugstr_guid(riidInterface), ppvObject);
-+
-+    return CreateStdAccessibleObject(hwnd, idObject, riidInterface, ppvObject);
++    *count = 1;
++    *status = entry;
++    return S_OK;
 +}
 +
-+HRESULT WINAPI CreateStdAccessibleProxyA( HWND hwnd, LPCSTR class_name, LONG idObject,
-+        REFIID riidInterface, void **ppvObject )
++HRESULT WINAPI SLGetSLIDList(HSLC handle, UINT query_type, const SLID *query,
++                             UINT return_type, UINT *count, SLID **data)
 +{
-+    FIXME("%p %s %ld %s %p semi-stub.\n", hwnd, debugstr_a(class_name), idObject,
-+          debugstr_guid(riidInterface), ppvObject);
++    FIXME("(%p %u %s %u %p %p) stub\n", handle, query_type, wine_dbgstr_guid(query),
++          return_type, count, data);
 +
-+    return CreateStdAccessibleObject(hwnd, idObject, riidInterface, ppvObject);
++    if (!count || !data)
++        return E_INVALIDARG;
++
++    *count = 0;
++    *data = NULL;
++    return S_OK;
 +}
 +
- HRESULT WINAPI ObjectFromLresult( LRESULT result, REFIID riid, WPARAM wParam, void **ppObject )
++HRESULT WINAPI SLInstallLicense(HSLC handle, UINT size, const BYTE *data, SLID *file)
++{
++    FIXME("(%p %u %p %p) stub\n", handle, size, data, file);
++
++    if (!handle || !size || !data || !file)
++        return E_INVALIDARG;
++
++    memset(file, 0, sizeof(*file));
++    return S_OK;
++}
++
++HRESULT WINAPI SLSetAuthenticationData(HSLC handle, UINT size, const BYTE *data)
++{
++    FIXME("(%p %u %p) stub\n", handle, size, data);
++
++    if (!handle)
++        return E_INVALIDARG;
++
++    return S_OK;
++}
++
++HRESULT WINAPI SLConsumeRight(HSLC handle, const SLID *app, const SLID *product,
++                              const WCHAR *right_name, void *reserved)
++{
++    FIXME("(%p %s %s %s %p) stub\n", handle, wine_dbgstr_guid(app),
++          wine_dbgstr_guid(product), debugstr_w(right_name), reserved);
++
++    if (!handle || !app || reserved)
++        return E_INVALIDARG;
++
++    last_consumed_right = product ? *product : *app;
++    has_consumed_right = TRUE;
++    return S_OK;
++}
++
++HRESULT WINAPI SLGetPolicyInformation(HSLC handle, const WCHAR *name, SLDATATYPE *type,
++                                      UINT *size, BYTE **data)
++{
++    FIXME("(%p %s %p %p %p) stub\n", handle, debugstr_w(name), type, size, data);
++
++    if (!handle || !name || !size || !data)
++        return E_INVALIDARG;
++
++    if (type)
++        *type = SL_DATA_NONE;
++    *size = 0;
++    *data = NULL;
++    return SL_E_VALUE_NOT_FOUND;
++}
++
++HRESULT WINAPI SLGetPolicyInformationDWORD(HSLC handle, const WCHAR *name, DWORD *value)
++{
++    FIXME("(%p %s %p) stub\n", handle, debugstr_w(name), value);
++
++    if (!handle || !name || !value)
++        return E_INVALIDARG;
++
++    *value = 0;
++    return SL_E_VALUE_NOT_FOUND;
++}
++
++HRESULT WINAPI SLLoadApplicationPolicies(const SLID *app, const SLID *product, DWORD flags, HSLP *context)
++{
++    FIXME("(%s %s %lx %p) stub\n", wine_dbgstr_guid(app), wine_dbgstr_guid(product), flags, context);
++
++    if (!app || !context)
++        return E_INVALIDARG;
++
++    *context = (HSLP)0xdeadbee1;
++    return S_OK;
++}
++
++HRESULT WINAPI SLGetApplicationPolicy(HSLP context, const WCHAR *name, SLDATATYPE *type,
++                                      UINT *size, BYTE **data)
++{
++    FIXME("(%p %s %p %p %p) stub\n", context, debugstr_w(name), type, size, data);
++
++    if (!context || !name || !size || !data)
++        return E_INVALIDARG;
++
++    if (type)
++        *type = SL_DATA_NONE;
++    *size = 0;
++    *data = NULL;
++    return SL_E_VALUE_NOT_FOUND;
++}
++
++HRESULT WINAPI SLUnloadApplicationPolicies(HSLP context, DWORD flags)
++{
++    FIXME("(%p %lx) stub\n", context, flags);
++
++    if (!context)
++        return E_INVALIDARG;
++
++    return S_OK;
+ }
+ 
+ HRESULT WINAPI SLOpen(HSLC *handle)
+diff --git a/dlls/xmllite/reader.c b/dlls/xmllite/reader.c
+index 1e146493aa..8017755565 100644
+--- a/dlls/xmllite/reader.c
++++ b/dlls/xmllite/reader.c
+@@ -2812,6 +2812,10 @@ static HRESULT WINAPI xmlreader_GetProperty(IXmlReader* iface, UINT property, LO
+         case XmlReaderProperty_MaxElementDepth:
+             *value = This->max_depth;
+             break;
++        case 18:
++            FIXME("Semi-stubbing property 18.\n");
++            *value = 0;
++            break;
+         default:
+             FIXME("Unimplemented property (%u)\n", property);
+             return E_NOTIMPL;
+@@ -2851,6 +2855,9 @@ static HRESULT WINAPI xmlreader_SetProperty(IXmlReader* iface, UINT property, LO
+         case XmlReaderProperty_MaxElementDepth:
+             This->max_depth = value;
+             break;
++        case 18:
++            FIXME("Ignoring property 18 value %#Ix.\n", value);
++            break;
+         default:
+             FIXME("Unimplemented property (%u)\n", property);
+             return E_NOTIMPL;
+@@ -3412,7 +3419,7 @@ static HRESULT WINAPI xmlreader_GetBaseUri(IXmlReader* iface,
+ 
+ static BOOL WINAPI xmlreader_IsDefault(IXmlReader* iface)
  {
-     WCHAR atom_str[ARRAY_SIZE(lresult_atom_prefix)+3*8+3];
-diff --git a/dlls/oleacc/oleacc.spec b/dlls/oleacc/oleacc.spec
-index 9ad6e91596..7024a80a82 100644
---- a/dlls/oleacc/oleacc.spec
-+++ b/dlls/oleacc/oleacc.spec
-@@ -3,8 +3,8 @@
- @ stdcall AccessibleObjectFromPoint(int64 ptr ptr)
- @ stdcall AccessibleObjectFromWindow(ptr long ptr ptr)
- @ stdcall CreateStdAccessibleObject(ptr long ptr ptr)
--@ stub CreateStdAccessibleProxyA
--@ stub CreateStdAccessibleProxyW
-+@ stdcall CreateStdAccessibleProxyA(ptr str long ptr ptr)
-+@ stdcall CreateStdAccessibleProxyW(ptr wstr long ptr ptr)
- @ stdcall -private DllGetClassObject(ptr ptr ptr)
- @ stdcall -private DllRegisterServer()
- @ stdcall -private DllUnregisterServer()
+-    FIXME("%p: stub\n", iface);
++    TRACE("%p.\n", iface);
+     return FALSE;
+ }
+ 
