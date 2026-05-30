@@ -467,3 +467,94 @@ are not enough to keep native OSPPSVC alive. The remaining lead is a service
 runtime/state mismatch around the native stack at `OSPPSVC.EXE+0xa739f`, or a
 Wine builtin `sppc` implementation that avoids relying on the native OSPP
 service teardown path.
+
+## OSPP Registry View Correction
+
+Checkpoint: 2026-05-30 22:44 UTC
+
+The previous registry/data tests were incomplete: using the 32-bit `wine reg`
+placed the OSPP keys under the redirected `Wow6432Node` registry view, while
+64-bit `OSPPSVC.EXE` opens the native key:
+
+```text
+HKLM\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform
+```
+
+After re-adding the root values, plugin registrations, and known-good
+`data\8fcc4cd6-...\{0,1,2}` binary blobs with `wine64 reg`, the raw
+`system.reg` contains both views, including:
+
+```text
+[Software\\Microsoft\\OfficeSoftwareProtectionPlatform\\data\\8fcc4cd6-36bc-4eb9-bece-10de1b3b8a45]
+"0"=hex:...
+"1"=hex:...
+"2"=hex:...
+```
+
+Probe log:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/sppc-auth-probe-after-ospp-64bit-reg.log
+```
+
+This clears the previous native OSPP teardown:
+
+```text
+SLOpen hr=0x00000000 handle=00356d10
+SLSetAuthenticationData hr=0x00000000
+SLGetAuthenticationResult hr=0xc004f07a size=0 data=00000000
+```
+
+The native HRESULT is `SL_E_AUTHN_CANT_VERIFY`. This is useful because it proves
+the earlier `0xc0020012` was caused by OSPPSVC failing to initialize against the
+native registry view, not by the auth challenge itself.
+
+## Builtin Auth Result Parity Test
+
+Checkpoint: 2026-05-30 22:44 UTC
+
+Changed Wine builtin `sppc.SLGetAuthenticationResult` so that after
+`SLSetAuthenticationData` it mirrors the native OSPP result:
+
+```text
+SLGetAuthenticationResult hr=0xc004f07a size=0 data=00000000
+```
+
+Probe log:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/sppc-auth-probe-builtin-cant-verify.log
+```
+
+Then launched latest Excel in the disposable authprobe prefix with
+`sppc=builtin`:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/excel-launch-builtin-cant-verify.log
+```
+
+Excel still emits repair `702061`:
+
+```text
+SLSetAuthenticationData hr=0x00000000
+SLGetAuthenticationResult returning native OSPP-compatible authentication verification failure.
+ReportEventW event string[1]: "We're sorry, but Excel has run into an error..."
+ReportEventW event string[2]: "702061"
+```
+
+Conclusion: matching the native auth-result HRESULT is not sufficient. The
+native OSPP path must also be supplying materially different policy,
+application, or service behavior before Excel decides whether to repair. The
+next comparison should focus on policy/application data returned by native OSPP
+around the sequence:
+
+```text
+SLConsumeRight
+SLGetPolicyInformation("*")
+SLGetApplicationPolicy("*")
+SLGetPolicyInformation("office-C845E028-E091-442E-8202-21F596C559A0")
+SLGetAuthenticationResult
+SLGetPolicyInformation("office-ParentCode")
+SLGetAuthenticationResult
+SLGetLicensingStatusInformation
+```
