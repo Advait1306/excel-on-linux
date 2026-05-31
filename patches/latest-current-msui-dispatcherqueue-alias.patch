@@ -1,0 +1,459 @@
+diff --git a/dlls/coremessaging/main.c b/dlls/coremessaging/main.c
+index 4944f28a49..4fbc690219 100644
+--- a/dlls/coremessaging/main.c
++++ b/dlls/coremessaging/main.c
+@@ -17,14 +17,454 @@
+  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+  */
+ 
++#define COBJMACROS
++#include "initguid.h"
++#include "activation.h"
+ #include "dispatcherqueue.h"
++#include "hstring.h"
++#include "weakreference.h"
+ #include "wine/debug.h"
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(messaging);
+ 
++HRESULT WINAPI WindowsCreateString( const WCHAR *source, UINT32 length, HSTRING *string );
++const WCHAR *WINAPI WindowsGetStringRawBuffer( HSTRING string, UINT32 *length );
++
++static const WCHAR RuntimeClass_Microsoft_UI_Dispatching_DispatcherQueue[] =
++    L"Microsoft.UI.Dispatching.DispatcherQueue";
++
++/* Microsoft.UI.Dispatching.IDispatcherQueueStatics */
++DEFINE_GUID( IID_IMicrosoftUIDispatcherQueueStatics, 0xcd3382ea, 0xa455, 0x5124, 0xb6,0x3a, 0xca,0x40,0xd3,0x4c,0xa2,0x3c );
++
++struct dispatcher_queue
++{
++    __x_ABI_CWindows_CSystem_CIDispatcherQueue IDispatcherQueue_iface;
++    IWeakReferenceSource IWeakReferenceSource_iface;
++    IWeakReference IWeakReference_iface;
++    LONG ref;
++};
++
++struct dispatcher_queue_factory
++{
++    IActivationFactory IActivationFactory_iface;
++    __x_ABI_CWindows_CSystem_CIDispatcherQueueStatics IDispatcherQueueStatics_iface;
++    LONG ref;
++};
++
++static struct dispatcher_queue queue;
++static struct dispatcher_queue_factory dispatcher_queue_factory;
++
++static inline struct dispatcher_queue *impl_from_IDispatcherQueue( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface )
++{
++    return CONTAINING_RECORD( iface, struct dispatcher_queue, IDispatcherQueue_iface );
++}
++
++static inline struct dispatcher_queue *impl_from_IWeakReferenceSource( IWeakReferenceSource *iface )
++{
++    return CONTAINING_RECORD( iface, struct dispatcher_queue, IWeakReferenceSource_iface );
++}
++
++static inline struct dispatcher_queue *impl_from_IWeakReference( IWeakReference *iface )
++{
++    return CONTAINING_RECORD( iface, struct dispatcher_queue, IWeakReference_iface );
++}
++
++static inline struct dispatcher_queue_factory *impl_from_IActivationFactory( IActivationFactory *iface )
++{
++    return CONTAINING_RECORD( iface, struct dispatcher_queue_factory, IActivationFactory_iface );
++}
++
++static inline struct dispatcher_queue_factory *impl_from_IDispatcherQueueStatics( __x_ABI_CWindows_CSystem_CIDispatcherQueueStatics *iface )
++{
++    return CONTAINING_RECORD( iface, struct dispatcher_queue_factory, IDispatcherQueueStatics_iface );
++}
++
++static HRESULT WINAPI queue_QueryInterface( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface, REFIID iid, void **out )
++{
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid(iid), out );
++
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID___x_ABI_CWindows_CSystem_CIDispatcherQueue ))
++    {
++        *out = iface;
++        __x_ABI_CWindows_CSystem_CIDispatcherQueue_AddRef( iface );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_IWeakReferenceSource ))
++    {
++        *out = &impl_from_IDispatcherQueue( iface )->IWeakReferenceSource_iface;
++        __x_ABI_CWindows_CSystem_CIDispatcherQueue_AddRef( iface );
++        return S_OK;
++    }
++
++    *out = NULL;
++    FIXME( "%s not implemented.\n", debugstr_guid(iid) );
++    return E_NOINTERFACE;
++}
++
++static ULONG WINAPI queue_AddRef( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface )
++{
++    return InterlockedIncrement( &impl_from_IDispatcherQueue( iface )->ref );
++}
++
++static ULONG WINAPI queue_Release( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface )
++{
++    return InterlockedDecrement( &impl_from_IDispatcherQueue( iface )->ref );
++}
++
++static HRESULT WINAPI queue_GetIids( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub.\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI queue_GetRuntimeClassName( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface, HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p stub.\n", iface, class_name );
++    return WindowsCreateString( RuntimeClass_Windows_System_DispatcherQueue,
++                                lstrlenW( RuntimeClass_Windows_System_DispatcherQueue ), class_name );
++}
++
++static HRESULT WINAPI queue_GetTrustLevel( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface, TrustLevel *trust_level )
++{
++    TRACE( "iface %p, trust_level %p.\n", iface, trust_level );
++    *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI queue_CreateTimer( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface,
++                                         __x_ABI_CWindows_CSystem_CIDispatcherQueueTimer **result )
++{
++    FIXME( "iface %p, result %p stub.\n", iface, result );
++    *result = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI queue_TryEnqueue( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface,
++                                        __x_ABI_CWindows_CSystem_CIDispatcherQueueHandler *callback,
++                                        boolean *result )
++{
++    HRESULT hr = S_OK;
++
++    TRACE( "iface %p, callback %p, result %p.\n", iface, callback, result );
++
++    if (!result) return E_INVALIDARG;
++    *result = TRUE;
++    if (callback) hr = __x_ABI_CWindows_CSystem_CIDispatcherQueueHandler_Invoke( callback );
++    return hr;
++}
++
++static HRESULT WINAPI queue_TryEnqueueWithPriority( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface,
++                                                    __x_ABI_CWindows_CSystem_CDispatcherQueuePriority priority,
++                                                    __x_ABI_CWindows_CSystem_CIDispatcherQueueHandler *callback,
++                                                    boolean *result )
++{
++    FIXME( "iface %p, priority %d, callback %p, result %p semi-stub.\n", iface, priority, callback, result );
++    return queue_TryEnqueue( iface, callback, result );
++}
++
++static HRESULT WINAPI queue_add_ShutdownStarting( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface,
++                                                  __FITypedEventHandler_2_Windows__CSystem__CDispatcherQueue_Windows__CSystem__CDispatcherQueueShutdownStartingEventArgs *handler,
++                                                  EventRegistrationToken *token )
++{
++    FIXME( "iface %p, handler %p, token %p stub.\n", iface, handler, token );
++    if (token) token->value = 1;
++    return S_OK;
++}
++
++static HRESULT WINAPI queue_remove_ShutdownStarting( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface, EventRegistrationToken token )
++{
++    FIXME( "iface %p, token %s stub.\n", iface, wine_dbgstr_longlong(token.value) );
++    return S_OK;
++}
++
++static HRESULT WINAPI queue_add_ShutdownCompleted( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface,
++                                                   __FITypedEventHandler_2_Windows__CSystem__CDispatcherQueue_IInspectable *handler,
++                                                   EventRegistrationToken *token )
++{
++    FIXME( "iface %p, handler %p, token %p stub.\n", iface, handler, token );
++    if (token) token->value = 2;
++    return S_OK;
++}
++
++static HRESULT WINAPI queue_remove_ShutdownCompleted( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface, EventRegistrationToken token )
++{
++    FIXME( "iface %p, token %s stub.\n", iface, wine_dbgstr_longlong(token.value) );
++    return S_OK;
++}
++
++static const __x_ABI_CWindows_CSystem_CIDispatcherQueueVtbl queue_vtbl =
++{
++    queue_QueryInterface,
++    queue_AddRef,
++    queue_Release,
++    queue_GetIids,
++    queue_GetRuntimeClassName,
++    queue_GetTrustLevel,
++    queue_CreateTimer,
++    queue_TryEnqueue,
++    queue_TryEnqueueWithPriority,
++    queue_add_ShutdownStarting,
++    queue_remove_ShutdownStarting,
++    queue_add_ShutdownCompleted,
++    queue_remove_ShutdownCompleted,
++};
++
++static HRESULT WINAPI weak_reference_QueryInterface( IWeakReference *iface, REFIID iid, void **out )
++{
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid(iid), out );
++
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IWeakReference ))
++    {
++        *out = iface;
++        IWeakReference_AddRef( iface );
++        return S_OK;
++    }
++
++    *out = NULL;
++    return E_NOINTERFACE;
++}
++
++static ULONG WINAPI weak_reference_AddRef( IWeakReference *iface )
++{
++    return __x_ABI_CWindows_CSystem_CIDispatcherQueue_AddRef( &impl_from_IWeakReference( iface )->IDispatcherQueue_iface );
++}
++
++static ULONG WINAPI weak_reference_Release( IWeakReference *iface )
++{
++    return __x_ABI_CWindows_CSystem_CIDispatcherQueue_Release( &impl_from_IWeakReference( iface )->IDispatcherQueue_iface );
++}
++
++static HRESULT WINAPI weak_reference_Resolve( IWeakReference *iface, REFIID iid, IInspectable **out )
++{
++    struct dispatcher_queue *impl = impl_from_IWeakReference( iface );
++
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid(iid), out );
++    return __x_ABI_CWindows_CSystem_CIDispatcherQueue_QueryInterface( &impl->IDispatcherQueue_iface, iid, (void **)out );
++}
++
++static const IWeakReferenceVtbl weak_reference_vtbl =
++{
++    weak_reference_QueryInterface,
++    weak_reference_AddRef,
++    weak_reference_Release,
++    weak_reference_Resolve,
++};
++
++static HRESULT WINAPI weak_reference_source_QueryInterface( IWeakReferenceSource *iface, REFIID iid, void **out )
++{
++    struct dispatcher_queue *impl = impl_from_IWeakReferenceSource( iface );
++    return __x_ABI_CWindows_CSystem_CIDispatcherQueue_QueryInterface( &impl->IDispatcherQueue_iface, iid, out );
++}
++
++static ULONG WINAPI weak_reference_source_AddRef( IWeakReferenceSource *iface )
++{
++    return __x_ABI_CWindows_CSystem_CIDispatcherQueue_AddRef( &impl_from_IWeakReferenceSource( iface )->IDispatcherQueue_iface );
++}
++
++static ULONG WINAPI weak_reference_source_Release( IWeakReferenceSource *iface )
++{
++    return __x_ABI_CWindows_CSystem_CIDispatcherQueue_Release( &impl_from_IWeakReferenceSource( iface )->IDispatcherQueue_iface );
++}
++
++static HRESULT WINAPI weak_reference_source_GetWeakReference( IWeakReferenceSource *iface, IWeakReference **ref )
++{
++    struct dispatcher_queue *impl = impl_from_IWeakReferenceSource( iface );
++
++    TRACE( "iface %p, ref %p.\n", iface, ref );
++
++    if (!ref) return E_INVALIDARG;
++    *ref = &impl->IWeakReference_iface;
++    IWeakReference_AddRef( *ref );
++    return S_OK;
++}
++
++static const IWeakReferenceSourceVtbl weak_reference_source_vtbl =
++{
++    weak_reference_source_QueryInterface,
++    weak_reference_source_AddRef,
++    weak_reference_source_Release,
++    weak_reference_source_GetWeakReference,
++};
++
++static HRESULT dispatcher_queue_factory_query_interface( struct dispatcher_queue_factory *impl, REFIID iid, void **out )
++{
++    TRACE( "iid %s, out %p.\n", debugstr_guid(iid), out );
++
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IActivationFactory ))
++    {
++        *out = &impl->IActivationFactory_iface;
++        IActivationFactory_AddRef( *out );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID___x_ABI_CWindows_CSystem_CIDispatcherQueueStatics ))
++    {
++        *out = &impl->IDispatcherQueueStatics_iface;
++        IActivationFactory_AddRef( &impl->IActivationFactory_iface );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_IMicrosoftUIDispatcherQueueStatics ))
++    {
++        FIXME( "aliasing Microsoft.UI.Dispatching.IDispatcherQueueStatics to Windows.System.DispatcherQueueStatics.\n" );
++        *out = &impl->IDispatcherQueueStatics_iface;
++        IActivationFactory_AddRef( &impl->IActivationFactory_iface );
++        return S_OK;
++    }
++
++    *out = NULL;
++    FIXME( "%s not implemented.\n", debugstr_guid(iid) );
++    return E_NOINTERFACE;
++}
++
++static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID iid, void **out )
++{
++    return dispatcher_queue_factory_query_interface( impl_from_IActivationFactory( iface ), iid, out );
++}
++
++static ULONG WINAPI factory_AddRef( IActivationFactory *iface )
++{
++    return InterlockedIncrement( &impl_from_IActivationFactory( iface )->ref );
++}
++
++static ULONG WINAPI factory_Release( IActivationFactory *iface )
++{
++    return InterlockedDecrement( &impl_from_IActivationFactory( iface )->ref );
++}
++
++static HRESULT WINAPI factory_GetIids( IActivationFactory *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub.\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI factory_GetRuntimeClassName( IActivationFactory *iface, HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p stub.\n", iface, class_name );
++    return WindowsCreateString( RuntimeClass_Windows_System_DispatcherQueue,
++                                lstrlenW( RuntimeClass_Windows_System_DispatcherQueue ), class_name );
++}
++
++static HRESULT WINAPI factory_GetTrustLevel( IActivationFactory *iface, TrustLevel *trust_level )
++{
++    TRACE( "iface %p, trust_level %p.\n", iface, trust_level );
++    *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI factory_ActivateInstance( IActivationFactory *iface, IInspectable **instance )
++{
++    FIXME( "iface %p, instance %p stub.\n", iface, instance );
++    *instance = NULL;
++    return E_NOTIMPL;
++}
++
++static const IActivationFactoryVtbl factory_vtbl =
++{
++    factory_QueryInterface,
++    factory_AddRef,
++    factory_Release,
++    factory_GetIids,
++    factory_GetRuntimeClassName,
++    factory_GetTrustLevel,
++    factory_ActivateInstance,
++};
++
++static HRESULT WINAPI statics_QueryInterface( __x_ABI_CWindows_CSystem_CIDispatcherQueueStatics *iface, REFIID iid, void **out )
++{
++    return dispatcher_queue_factory_query_interface( impl_from_IDispatcherQueueStatics( iface ), iid, out );
++}
++
++static ULONG WINAPI statics_AddRef( __x_ABI_CWindows_CSystem_CIDispatcherQueueStatics *iface )
++{
++    return IActivationFactory_AddRef( &impl_from_IDispatcherQueueStatics( iface )->IActivationFactory_iface );
++}
++
++static ULONG WINAPI statics_Release( __x_ABI_CWindows_CSystem_CIDispatcherQueueStatics *iface )
++{
++    return IActivationFactory_Release( &impl_from_IDispatcherQueueStatics( iface )->IActivationFactory_iface );
++}
++
++static HRESULT WINAPI statics_GetIids( __x_ABI_CWindows_CSystem_CIDispatcherQueueStatics *iface, ULONG *iid_count, IID **iids )
++{
++    return factory_GetIids( &impl_from_IDispatcherQueueStatics( iface )->IActivationFactory_iface, iid_count, iids );
++}
++
++static HRESULT WINAPI statics_GetRuntimeClassName( __x_ABI_CWindows_CSystem_CIDispatcherQueueStatics *iface, HSTRING *class_name )
++{
++    return factory_GetRuntimeClassName( &impl_from_IDispatcherQueueStatics( iface )->IActivationFactory_iface, class_name );
++}
++
++static HRESULT WINAPI statics_GetTrustLevel( __x_ABI_CWindows_CSystem_CIDispatcherQueueStatics *iface, TrustLevel *trust_level )
++{
++    return factory_GetTrustLevel( &impl_from_IDispatcherQueueStatics( iface )->IActivationFactory_iface, trust_level );
++}
++
++static HRESULT WINAPI statics_GetForCurrentThread( __x_ABI_CWindows_CSystem_CIDispatcherQueueStatics *iface,
++                                                   __x_ABI_CWindows_CSystem_CIDispatcherQueue **result )
++{
++    TRACE( "iface %p, result %p.\n", iface, result );
++
++    if (!result) return E_INVALIDARG;
++    *result = &queue.IDispatcherQueue_iface;
++    __x_ABI_CWindows_CSystem_CIDispatcherQueue_AddRef( *result );
++    return S_OK;
++}
++
++static const __x_ABI_CWindows_CSystem_CIDispatcherQueueStaticsVtbl statics_vtbl =
++{
++    statics_QueryInterface,
++    statics_AddRef,
++    statics_Release,
++    statics_GetIids,
++    statics_GetRuntimeClassName,
++    statics_GetTrustLevel,
++    statics_GetForCurrentThread,
++};
++
++static struct dispatcher_queue queue =
++{
++    { &queue_vtbl },
++    { &weak_reference_source_vtbl },
++    { &weak_reference_vtbl },
++    1,
++};
++
++static struct dispatcher_queue_factory dispatcher_queue_factory =
++{
++    { &factory_vtbl },
++    { &statics_vtbl },
++    1,
++};
++
+ HRESULT WINAPI CreateDispatcherQueueController( DispatcherQueueOptions options, PDISPATCHERQUEUECONTROLLER *queue_controller )
+ {
+     FIXME( "options.dwSize = %lu, options.threadType = %d, options.apartmentType = %d, queue_controller %p stub!\n",
+             options.dwSize, options.threadType, options.apartmentType, queue_controller );
+     return E_NOTIMPL;
+ }
++
++HRESULT WINAPI DllGetActivationFactory( HSTRING classid, IActivationFactory **factory )
++{
++    const WCHAR *buffer = WindowsGetStringRawBuffer( classid, NULL );
++
++    TRACE( "class %s, factory %p.\n", debugstr_w(buffer), factory );
++
++    if (!factory) return E_INVALIDARG;
++    *factory = NULL;
++
++    if (!wcscmp( buffer, RuntimeClass_Windows_System_DispatcherQueue ) ||
++        !wcscmp( buffer, RuntimeClass_Microsoft_UI_Dispatching_DispatcherQueue ))
++        IActivationFactory_QueryInterface( &dispatcher_queue_factory.IActivationFactory_iface,
++                                           &IID_IActivationFactory, (void **)factory );
++
++    return *factory ? S_OK : CLASS_E_CLASSNOTAVAILABLE;
++}
