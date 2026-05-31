@@ -1,0 +1,31 @@
+2026-05-31 02:40 UTC
+
+Runtime/prefix:
+- Patched GE-Proton10-34 Wine runtime: /home/mars-user/office-open-repro/valve-wine-ge10-install
+- Disposable latest prefix: /home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx
+- Office/Excel: 32-bit latest/current 16.0.20026.x in WOW64 prefix, Windows 10.
+
+Changes tested:
+- Added Windows.Data.Json.JsonObject IJsonObjectStatics ({2289f159-54de-45d8-abcc-22603fa066a0}) to builtin windows.web.dll.
+  - Parse/TryParse are minimal semi-stubs returning an empty JsonObject.
+  - Rebuilt/copied i386 windows.web.dll into the patched runtime.
+- Added Windows.System.Profile.SharedModeSettings statics to windows.system.profile.systemmanufacturers.dll.
+  - ISharedModeSettingsStatics2 ({608988a4-ccf1-4ee8-a5e2-fd6a1d0cfac8}) ShouldAvoidLocalStorage returns false.
+  - ISharedModeSettingsStatics ({893df40e-cad6-4d50-8c49-6fcfc03edb29}) IsEnabled returns false.
+  - Rebuilt/copied i386 windows.system.profile.systemmanufacturers.dll into the patched runtime.
+- Registered SharedModeSettings in the disposable prefix with both wine64 and 32-bit wine; the 32-bit registration was the one that cleared the Excel log failure:
+  wine reg add 'HKLM\Software\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.Profile.SharedModeSettings' /v DllPath /t REG_SZ /d 'C:\windows\system32\windows.system.profile.systemmanufacturers.dll' /f
+
+Evidence:
+- Before patch: JsonObject activation returned E_NOINTERFACE for {2289f159-54de-45d8-abcc-22603fa066a0}; Office reported Apps for Office 0x80004002 and showed a blank Feedback to Microsoft window.
+- After JsonObject patch: no Apps for Office 0x80004002 event; window tree shows Excel plus Sign in to set up Office, screenshot still blank.
+- After 32-bit SharedModeSettings registration: log shows RoGetActivationFactory for Windows.System.Profile.SharedModeSettings but no following "Failed to find library" error.
+- Current visible state remains a blank Sign in to set up Office window over Excel, so the next blocker is still sign-in/Office UI rendering/content.
+
+Files:
+- Patch snapshot: patches/latest-current-json-sharedmode-stubs.patch
+- Screenshot: public/latest-current-excel-x11-sharedmode-signin-blank.png
+- Logs outside repo:
+  - /home/mars-user/office-open-repro/logs-latest-authprobe/excel-x11-jsonobject-statics.log
+  - /home/mars-user/office-open-repro/logs-latest-authprobe/excel-x11-sharedmode-reg32.log
+  - /home/mars-user/office-open-repro/logs-latest-authprobe/xwininfo-sharedmode-reg32.txt

@@ -1,0 +1,458 @@
+diff --git a/dlls/windows.system.profile.systemmanufacturers/main.c b/dlls/windows.system.profile.systemmanufacturers/main.c
+index ba30d84e00..e2b1d76a60 100644
+--- a/dlls/windows.system.profile.systemmanufacturers/main.c
++++ b/dlls/windows.system.profile.systemmanufacturers/main.c
+@@ -24,10 +24,53 @@
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(smbios);
+ 
++struct ISharedModeSettingsStatics_WINE;
++struct ISharedModeSettingsStatics2_WINE;
++
++struct ISharedModeSettingsStatics_WINE_vtbl
++{
++    HRESULT (STDMETHODCALLTYPE *QueryInterface)(struct ISharedModeSettingsStatics_WINE *iface, REFIID iid, void **out);
++    ULONG (STDMETHODCALLTYPE *AddRef)(struct ISharedModeSettingsStatics_WINE *iface);
++    ULONG (STDMETHODCALLTYPE *Release)(struct ISharedModeSettingsStatics_WINE *iface);
++    HRESULT (STDMETHODCALLTYPE *GetIids)(struct ISharedModeSettingsStatics_WINE *iface, ULONG *iid_count, IID **iids);
++    HRESULT (STDMETHODCALLTYPE *GetRuntimeClassName)(struct ISharedModeSettingsStatics_WINE *iface, HSTRING *class_name);
++    HRESULT (STDMETHODCALLTYPE *GetTrustLevel)(struct ISharedModeSettingsStatics_WINE *iface, TrustLevel *trust_level);
++    HRESULT (STDMETHODCALLTYPE *get_IsEnabled)(struct ISharedModeSettingsStatics_WINE *iface, boolean *value);
++};
++
++struct ISharedModeSettingsStatics2_WINE_vtbl
++{
++    HRESULT (STDMETHODCALLTYPE *QueryInterface)(struct ISharedModeSettingsStatics2_WINE *iface, REFIID iid, void **out);
++    ULONG (STDMETHODCALLTYPE *AddRef)(struct ISharedModeSettingsStatics2_WINE *iface);
++    ULONG (STDMETHODCALLTYPE *Release)(struct ISharedModeSettingsStatics2_WINE *iface);
++    HRESULT (STDMETHODCALLTYPE *GetIids)(struct ISharedModeSettingsStatics2_WINE *iface, ULONG *iid_count, IID **iids);
++    HRESULT (STDMETHODCALLTYPE *GetRuntimeClassName)(struct ISharedModeSettingsStatics2_WINE *iface, HSTRING *class_name);
++    HRESULT (STDMETHODCALLTYPE *GetTrustLevel)(struct ISharedModeSettingsStatics2_WINE *iface, TrustLevel *trust_level);
++    HRESULT (STDMETHODCALLTYPE *get_ShouldAvoidLocalStorage)(struct ISharedModeSettingsStatics2_WINE *iface,
++            boolean *value);
++};
++
++struct ISharedModeSettingsStatics_WINE
++{
++    const struct ISharedModeSettingsStatics_WINE_vtbl *lpVtbl;
++};
++
++struct ISharedModeSettingsStatics2_WINE
++{
++    const struct ISharedModeSettingsStatics2_WINE_vtbl *lpVtbl;
++};
++
++static const GUID IID_ISharedModeSettingsStatics_WINE =
++        {0x893df40e,0xcad6,0x4d50,{0x8c,0x49,0x6f,0xcf,0xc0,0x3e,0xdb,0x29}};
++static const GUID IID_ISharedModeSettingsStatics2_WINE =
++        {0x608988a4,0xccf1,0x4ee8,{0xa5,0xe2,0xfd,0x6a,0x1d,0x0c,0xfa,0xc8}};
++
+ struct smbios_statics
+ {
+     IActivationFactory IActivationFactory_iface;
+     ISmbiosInformationStatics ISmbiosInformationStatics_iface;
++    struct ISharedModeSettingsStatics_WINE ISharedModeSettingsStatics_iface;
++    struct ISharedModeSettingsStatics2_WINE ISharedModeSettingsStatics2_iface;
+     LONG ref;
+ };
+ 
+@@ -36,6 +79,18 @@ static inline struct smbios_statics *impl_from_IActivationFactory( IActivationFa
+     return CONTAINING_RECORD( iface, struct smbios_statics, IActivationFactory_iface );
+ }
+ 
++static inline struct smbios_statics *impl_from_ISharedModeSettingsStatics_WINE(
++        struct ISharedModeSettingsStatics_WINE *iface )
++{
++    return CONTAINING_RECORD( iface, struct smbios_statics, ISharedModeSettingsStatics_iface );
++}
++
++static inline struct smbios_statics *impl_from_ISharedModeSettingsStatics2_WINE(
++        struct ISharedModeSettingsStatics2_WINE *iface )
++{
++    return CONTAINING_RECORD( iface, struct smbios_statics, ISharedModeSettingsStatics2_iface );
++}
++
+ static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID iid, void **out )
+ {
+     struct smbios_statics *impl = impl_from_IActivationFactory( iface );
+@@ -59,6 +114,20 @@ static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID
+         return S_OK;
+     }
+ 
++    if (IsEqualGUID( iid, &IID_ISharedModeSettingsStatics_WINE ))
++    {
++        *out = &impl->ISharedModeSettingsStatics_iface;
++        IInspectable_AddRef( *out );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_ISharedModeSettingsStatics2_WINE ))
++    {
++        *out = &impl->ISharedModeSettingsStatics2_iface;
++        IInspectable_AddRef( *out );
++        return S_OK;
++    }
++
+     FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
+     *out = NULL;
+     return E_NOINTERFACE;
+@@ -117,6 +186,134 @@ static const struct IActivationFactoryVtbl factory_vtbl =
+     factory_ActivateInstance,
+ };
+ 
++static HRESULT STDMETHODCALLTYPE shared_mode_settings_QueryInterface( struct ISharedModeSettingsStatics_WINE *iface,
++        REFIID iid, void **out )
++{
++    struct smbios_statics *impl = impl_from_ISharedModeSettingsStatics_WINE( iface );
++
++    return IActivationFactory_QueryInterface( &impl->IActivationFactory_iface, iid, out );
++}
++
++static ULONG STDMETHODCALLTYPE shared_mode_settings_AddRef( struct ISharedModeSettingsStatics_WINE *iface )
++{
++    struct smbios_statics *impl = impl_from_ISharedModeSettingsStatics_WINE( iface );
++
++    return IActivationFactory_AddRef( &impl->IActivationFactory_iface );
++}
++
++static ULONG STDMETHODCALLTYPE shared_mode_settings_Release( struct ISharedModeSettingsStatics_WINE *iface )
++{
++    struct smbios_statics *impl = impl_from_ISharedModeSettingsStatics_WINE( iface );
++
++    return IActivationFactory_Release( &impl->IActivationFactory_iface );
++}
++
++static HRESULT STDMETHODCALLTYPE shared_mode_settings_GetIids( struct ISharedModeSettingsStatics_WINE *iface,
++        ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT STDMETHODCALLTYPE shared_mode_settings_GetRuntimeClassName( struct ISharedModeSettingsStatics_WINE *iface,
++        HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p stub!\n", iface, class_name );
++    return E_NOTIMPL;
++}
++
++static HRESULT STDMETHODCALLTYPE shared_mode_settings_GetTrustLevel( struct ISharedModeSettingsStatics_WINE *iface,
++        TrustLevel *trust_level )
++{
++    FIXME( "iface %p, trust_level %p stub!\n", iface, trust_level );
++    return E_NOTIMPL;
++}
++
++static HRESULT STDMETHODCALLTYPE shared_mode_settings_get_IsEnabled( struct ISharedModeSettingsStatics_WINE *iface,
++        boolean *value )
++{
++    FIXME( "iface %p, value %p semi-stub.\n", iface, value );
++
++    if (!value) return E_INVALIDARG;
++    *value = FALSE;
++    return S_OK;
++}
++
++static const struct ISharedModeSettingsStatics_WINE_vtbl shared_mode_settings_vtbl =
++{
++    shared_mode_settings_QueryInterface,
++    shared_mode_settings_AddRef,
++    shared_mode_settings_Release,
++    shared_mode_settings_GetIids,
++    shared_mode_settings_GetRuntimeClassName,
++    shared_mode_settings_GetTrustLevel,
++    shared_mode_settings_get_IsEnabled,
++};
++
++static HRESULT STDMETHODCALLTYPE shared_mode_settings2_QueryInterface( struct ISharedModeSettingsStatics2_WINE *iface,
++        REFIID iid, void **out )
++{
++    struct smbios_statics *impl = impl_from_ISharedModeSettingsStatics2_WINE( iface );
++
++    return IActivationFactory_QueryInterface( &impl->IActivationFactory_iface, iid, out );
++}
++
++static ULONG STDMETHODCALLTYPE shared_mode_settings2_AddRef( struct ISharedModeSettingsStatics2_WINE *iface )
++{
++    struct smbios_statics *impl = impl_from_ISharedModeSettingsStatics2_WINE( iface );
++
++    return IActivationFactory_AddRef( &impl->IActivationFactory_iface );
++}
++
++static ULONG STDMETHODCALLTYPE shared_mode_settings2_Release( struct ISharedModeSettingsStatics2_WINE *iface )
++{
++    struct smbios_statics *impl = impl_from_ISharedModeSettingsStatics2_WINE( iface );
++
++    return IActivationFactory_Release( &impl->IActivationFactory_iface );
++}
++
++static HRESULT STDMETHODCALLTYPE shared_mode_settings2_GetIids( struct ISharedModeSettingsStatics2_WINE *iface,
++        ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT STDMETHODCALLTYPE shared_mode_settings2_GetRuntimeClassName(
++        struct ISharedModeSettingsStatics2_WINE *iface, HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p stub!\n", iface, class_name );
++    return E_NOTIMPL;
++}
++
++static HRESULT STDMETHODCALLTYPE shared_mode_settings2_GetTrustLevel( struct ISharedModeSettingsStatics2_WINE *iface,
++        TrustLevel *trust_level )
++{
++    FIXME( "iface %p, trust_level %p stub!\n", iface, trust_level );
++    return E_NOTIMPL;
++}
++
++static HRESULT STDMETHODCALLTYPE shared_mode_settings2_get_ShouldAvoidLocalStorage(
++        struct ISharedModeSettingsStatics2_WINE *iface, boolean *value )
++{
++    FIXME( "iface %p, value %p semi-stub.\n", iface, value );
++
++    if (!value) return E_INVALIDARG;
++    *value = FALSE;
++    return S_OK;
++}
++
++static const struct ISharedModeSettingsStatics2_WINE_vtbl shared_mode_settings2_vtbl =
++{
++    shared_mode_settings2_QueryInterface,
++    shared_mode_settings2_AddRef,
++    shared_mode_settings2_Release,
++    shared_mode_settings2_GetIids,
++    shared_mode_settings2_GetRuntimeClassName,
++    shared_mode_settings2_GetTrustLevel,
++    shared_mode_settings2_get_ShouldAvoidLocalStorage,
++};
++
+ DEFINE_IINSPECTABLE( statics, ISmbiosInformationStatics, struct smbios_statics, IActivationFactory_iface )
+ 
+ static HRESULT get_bios_serialnumber( BSTR *value )
+@@ -200,6 +397,8 @@ static struct smbios_statics smbios_statics =
+ {
+     {&factory_vtbl},
+     {&statics_vtbl},
++    {&shared_mode_settings_vtbl},
++    {&shared_mode_settings2_vtbl},
+     1,
+ };
+ 
+@@ -221,6 +420,8 @@ HRESULT WINAPI DllGetActivationFactory( HSTRING classid, IActivationFactory **fa
+ 
+     if (!wcscmp( name, RuntimeClass_Windows_System_Profile_SystemManufacturers_SmbiosInformation ))
+         IActivationFactory_QueryInterface( smbios_factory, &IID_IActivationFactory, (void **)factory );
++    if (!wcscmp( name, L"Windows.System.Profile.SharedModeSettings" ))
++        IActivationFactory_QueryInterface( smbios_factory, &IID_IActivationFactory, (void **)factory );
+ 
+     if (*factory) return S_OK;
+     return CLASS_E_CLASSNOTAVAILABLE;
+diff --git a/dlls/windows.web/json_object.c b/dlls/windows.web/json_object.c
+index 38c899288b..bdb0808c79 100644
+--- a/dlls/windows.web/json_object.c
++++ b/dlls/windows.web/json_object.c
+@@ -28,11 +28,51 @@ struct json_object
+     LONG ref;
+ };
+ 
++struct IJsonObjectStatics_WINE;
++
++struct IJsonObjectStatics_WINE_vtbl
++{
++    HRESULT (STDMETHODCALLTYPE *QueryInterface)(struct IJsonObjectStatics_WINE *iface, REFIID iid, void **out);
++    ULONG (STDMETHODCALLTYPE *AddRef)(struct IJsonObjectStatics_WINE *iface);
++    ULONG (STDMETHODCALLTYPE *Release)(struct IJsonObjectStatics_WINE *iface);
++    HRESULT (STDMETHODCALLTYPE *GetIids)(struct IJsonObjectStatics_WINE *iface, ULONG *iid_count, IID **iids);
++    HRESULT (STDMETHODCALLTYPE *GetRuntimeClassName)(struct IJsonObjectStatics_WINE *iface, HSTRING *class_name);
++    HRESULT (STDMETHODCALLTYPE *GetTrustLevel)(struct IJsonObjectStatics_WINE *iface, TrustLevel *trust_level);
++    HRESULT (STDMETHODCALLTYPE *Parse)(struct IJsonObjectStatics_WINE *iface, HSTRING input, IJsonObject **value);
++    HRESULT (STDMETHODCALLTYPE *TryParse)(struct IJsonObjectStatics_WINE *iface, HSTRING input,
++            IJsonObject **result, boolean *succeeded);
++};
++
++struct IJsonObjectStatics_WINE
++{
++    const struct IJsonObjectStatics_WINE_vtbl *lpVtbl;
++};
++
++static const GUID IID_IJsonObjectStatics_WINE =
++        {0x2289f159,0x54de,0x45d8,{0xab,0xcc,0x22,0x60,0x3f,0xa0,0x66,0xa0}};
++static const struct IJsonObjectVtbl json_object_statics_vtbl;
++
+ static inline struct json_object *impl_from_IJsonObject( IJsonObject *iface )
+ {
+     return CONTAINING_RECORD( iface, struct json_object, IJsonObject_iface );
+ }
+ 
++static HRESULT json_object_create( IJsonObject **out )
++{
++    struct json_object *impl;
++
++    if (!out) return E_INVALIDARG;
++    *out = NULL;
++
++    if (!(impl = calloc( 1, sizeof(*impl) ))) return E_OUTOFMEMORY;
++
++    impl->IJsonObject_iface.lpVtbl = &json_object_statics_vtbl;
++    impl->ref = 1;
++
++    *out = &impl->IJsonObject_iface;
++    return S_OK;
++}
++
+ static HRESULT WINAPI json_object_statics_QueryInterface( IJsonObject *iface, REFIID iid, void **out )
+ {
+     struct json_object *impl = impl_from_IJsonObject( iface );
+@@ -155,6 +195,7 @@ static const struct IJsonObjectVtbl json_object_statics_vtbl =
+ struct json_object_statics
+ {
+     IActivationFactory IActivationFactory_iface;
++    struct IJsonObjectStatics_WINE IJsonObjectStatics_iface;
+     LONG ref;
+ };
+ 
+@@ -163,6 +204,11 @@ static inline struct json_object_statics *impl_from_IActivationFactory( IActivat
+     return CONTAINING_RECORD( iface, struct json_object_statics, IActivationFactory_iface );
+ }
+ 
++static inline struct json_object_statics *impl_from_IJsonObjectStatics_WINE( struct IJsonObjectStatics_WINE *iface )
++{
++    return CONTAINING_RECORD( iface, struct json_object_statics, IJsonObjectStatics_iface );
++}
++
+ static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID iid, void **out )
+ {
+     struct json_object_statics *impl = impl_from_IActivationFactory( iface );
+@@ -179,6 +225,13 @@ static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID
+         return S_OK;
+     }
+ 
++    if (IsEqualGUID( iid, &IID_IJsonObjectStatics_WINE ))
++    {
++        *out = &impl->IJsonObjectStatics_iface;
++        IInspectable_AddRef( *out );
++        return S_OK;
++    }
++
+     FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
+     *out = NULL;
+     return E_NOINTERFACE;
+@@ -220,18 +273,18 @@ static HRESULT WINAPI factory_GetTrustLevel( IActivationFactory *iface, TrustLev
+ 
+ static HRESULT WINAPI factory_ActivateInstance( IActivationFactory *iface, IInspectable **instance )
+ {
+-    struct json_object *impl;
++    IJsonObject *object;
++    HRESULT hr;
+ 
+     TRACE( "iface %p, instance %p.\n", iface, instance );
+ 
++    if (!instance) return E_INVALIDARG;
+     *instance = NULL;
+-    if (!(impl = calloc( 1, sizeof(*impl) ))) return E_OUTOFMEMORY;
+ 
+-    impl->IJsonObject_iface.lpVtbl = &json_object_statics_vtbl;
+-    impl->ref = 1;
++    if (FAILED(hr = json_object_create( &object ))) return hr;
+ 
+-    *instance = (IInspectable *)&impl->IJsonObject_iface;
+-    return S_OK;
++    *instance = (IInspectable *)object;
++    return hr;
+ }
+ 
+ static const struct IActivationFactoryVtbl factory_vtbl =
+@@ -247,9 +300,91 @@ static const struct IActivationFactoryVtbl factory_vtbl =
+     factory_ActivateInstance,
+ };
+ 
++static HRESULT STDMETHODCALLTYPE json_object_factory_statics_QueryInterface( struct IJsonObjectStatics_WINE *iface,
++        REFIID iid, void **out )
++{
++    struct json_object_statics *impl = impl_from_IJsonObjectStatics_WINE( iface );
++
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid( iid ), out );
++
++    return IActivationFactory_QueryInterface( &impl->IActivationFactory_iface, iid, out );
++}
++
++static ULONG STDMETHODCALLTYPE json_object_factory_statics_AddRef( struct IJsonObjectStatics_WINE *iface )
++{
++    struct json_object_statics *impl = impl_from_IJsonObjectStatics_WINE( iface );
++
++    return IActivationFactory_AddRef( &impl->IActivationFactory_iface );
++}
++
++static ULONG STDMETHODCALLTYPE json_object_factory_statics_Release( struct IJsonObjectStatics_WINE *iface )
++{
++    struct json_object_statics *impl = impl_from_IJsonObjectStatics_WINE( iface );
++
++    return IActivationFactory_Release( &impl->IActivationFactory_iface );
++}
++
++static HRESULT STDMETHODCALLTYPE json_object_factory_statics_GetIids( struct IJsonObjectStatics_WINE *iface,
++        ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    return E_NOTIMPL;
++}
++
++static HRESULT STDMETHODCALLTYPE json_object_factory_statics_GetRuntimeClassName( struct IJsonObjectStatics_WINE *iface,
++        HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p stub!\n", iface, class_name );
++    return E_NOTIMPL;
++}
++
++static HRESULT STDMETHODCALLTYPE json_object_factory_statics_GetTrustLevel( struct IJsonObjectStatics_WINE *iface,
++        TrustLevel *trust_level )
++{
++    FIXME( "iface %p, trust_level %p stub!\n", iface, trust_level );
++    return E_NOTIMPL;
++}
++
++static HRESULT STDMETHODCALLTYPE json_object_factory_statics_Parse( struct IJsonObjectStatics_WINE *iface,
++        HSTRING input, IJsonObject **value )
++{
++    FIXME( "iface %p, input %s, value %p semi-stub.\n", iface, debugstr_hstring( input ), value );
++
++    return json_object_create( value );
++}
++
++static HRESULT STDMETHODCALLTYPE json_object_factory_statics_TryParse( struct IJsonObjectStatics_WINE *iface,
++        HSTRING input, IJsonObject **result, boolean *succeeded )
++{
++    HRESULT hr;
++
++    FIXME( "iface %p, input %s, result %p, succeeded %p semi-stub.\n", iface, debugstr_hstring( input ), result,
++            succeeded );
++
++    if (succeeded) *succeeded = FALSE;
++    if (!result || !succeeded) return E_INVALIDARG;
++
++    hr = json_object_create( result );
++    if (SUCCEEDED(hr)) *succeeded = TRUE;
++    return hr;
++}
++
++static const struct IJsonObjectStatics_WINE_vtbl json_object_factory_statics_vtbl =
++{
++    json_object_factory_statics_QueryInterface,
++    json_object_factory_statics_AddRef,
++    json_object_factory_statics_Release,
++    json_object_factory_statics_GetIids,
++    json_object_factory_statics_GetRuntimeClassName,
++    json_object_factory_statics_GetTrustLevel,
++    json_object_factory_statics_Parse,
++    json_object_factory_statics_TryParse,
++};
++
+ static struct json_object_statics json_object_statics =
+ {
+     {&factory_vtbl},
++    {&json_object_factory_statics_vtbl},
+     1,
+ };
+ 
