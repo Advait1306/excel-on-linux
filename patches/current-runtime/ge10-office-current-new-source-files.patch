@@ -1,0 +1,1723 @@
+diff --git a/dlls/twinapi.appcore/retail_info.c b/dlls/twinapi.appcore/retail_info.c
+new file mode 100644
+index 00000000000..104040ce26f
+--- /dev/null
++++ b/dlls/twinapi.appcore/retail_info.c
+@@ -0,0 +1,202 @@
++/* Minimal Windows.System.Profile.RetailInfo activation factory.
++ *
++ * Copyright (C) 2026
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ */
++
++#include "private.h"
++
++WINE_DEFAULT_DEBUG_CHANNEL(twinapi);
++
++struct retail_info_factory
++{
++    IActivationFactory IActivationFactory_iface;
++    struct IRetailInfoStatics_compat
++    {
++        const struct IRetailInfoStaticsVtbl_compat *lpVtbl;
++    } IRetailInfoStatics_iface;
++    LONG ref;
++};
++
++static const GUID IID_IRetailInfoStatics_compat =
++    {0x0712c6b8, 0x8b92, 0x4f2a, {0x84,0x99, 0x03,0x1f,0x17,0x98,0xd6,0xef}};
++
++static inline struct retail_info_factory *impl_from_IActivationFactory( IActivationFactory *iface )
++{
++    return CONTAINING_RECORD( iface, struct retail_info_factory, IActivationFactory_iface );
++}
++
++static inline struct retail_info_factory *impl_from_IRetailInfoStatics( struct IRetailInfoStatics_compat *iface )
++{
++    return CONTAINING_RECORD( iface, struct retail_info_factory, IRetailInfoStatics_iface );
++}
++
++static HRESULT retail_info_query_interface( struct retail_info_factory *impl, REFIID iid, void **out )
++{
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IActivationFactory ))
++    {
++        *out = &impl->IActivationFactory_iface;
++        IActivationFactory_AddRef( *out );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_IRetailInfoStatics_compat ))
++    {
++        *out = &impl->IRetailInfoStatics_iface;
++        IActivationFactory_AddRef( &impl->IActivationFactory_iface );
++        return S_OK;
++    }
++
++    FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
++    *out = NULL;
++    return E_NOINTERFACE;
++}
++
++static HRESULT WINAPI retail_info_QueryInterface( IActivationFactory *iface, REFIID iid, void **out )
++{
++    struct retail_info_factory *impl = impl_from_IActivationFactory( iface );
++
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid( iid ), out );
++    return retail_info_query_interface( impl, iid, out );
++}
++
++static ULONG WINAPI retail_info_AddRef( IActivationFactory *iface )
++{
++    struct retail_info_factory *impl = impl_from_IActivationFactory( iface );
++    return InterlockedIncrement( &impl->ref );
++}
++
++static ULONG WINAPI retail_info_Release( IActivationFactory *iface )
++{
++    struct retail_info_factory *impl = impl_from_IActivationFactory( iface );
++    return InterlockedDecrement( &impl->ref );
++}
++
++static HRESULT WINAPI retail_info_GetIids( IActivationFactory *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    if (iid_count) *iid_count = 0;
++    if (iids) *iids = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI retail_info_GetRuntimeClassName( IActivationFactory *iface, HSTRING *class_name )
++{
++    return WindowsCreateString( L"Windows.System.Profile.RetailInfo",
++                                wcslen( L"Windows.System.Profile.RetailInfo" ), class_name );
++}
++
++static HRESULT WINAPI retail_info_GetTrustLevel( IActivationFactory *iface, TrustLevel *trust_level )
++{
++    if (trust_level) *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI retail_info_ActivateInstance( IActivationFactory *iface, IInspectable **instance )
++{
++    FIXME( "iface %p, instance %p stub!\n", iface, instance );
++    if (instance) *instance = NULL;
++    return E_NOTIMPL;
++}
++
++static const struct IActivationFactoryVtbl retail_info_vtbl =
++{
++    retail_info_QueryInterface,
++    retail_info_AddRef,
++    retail_info_Release,
++    retail_info_GetIids,
++    retail_info_GetRuntimeClassName,
++    retail_info_GetTrustLevel,
++    retail_info_ActivateInstance,
++};
++
++struct IRetailInfoStaticsVtbl_compat
++{
++    HRESULT (STDMETHODCALLTYPE *QueryInterface)( struct IRetailInfoStatics_compat *iface, REFIID iid, void **out );
++    ULONG (STDMETHODCALLTYPE *AddRef)( struct IRetailInfoStatics_compat *iface );
++    ULONG (STDMETHODCALLTYPE *Release)( struct IRetailInfoStatics_compat *iface );
++    HRESULT (STDMETHODCALLTYPE *GetIids)( struct IRetailInfoStatics_compat *iface, ULONG *iid_count, IID **iids );
++    HRESULT (STDMETHODCALLTYPE *GetRuntimeClassName)( struct IRetailInfoStatics_compat *iface, HSTRING *class_name );
++    HRESULT (STDMETHODCALLTYPE *GetTrustLevel)( struct IRetailInfoStatics_compat *iface, TrustLevel *trust_level );
++    HRESULT (STDMETHODCALLTYPE *get_IsDemoModeEnabled)( struct IRetailInfoStatics_compat *iface, boolean *value );
++    HRESULT (STDMETHODCALLTYPE *get_Properties)( struct IRetailInfoStatics_compat *iface, void **value );
++};
++
++static HRESULT WINAPI statics_QueryInterface( struct IRetailInfoStatics_compat *iface, REFIID iid, void **out )
++{
++    return retail_info_query_interface( impl_from_IRetailInfoStatics( iface ), iid, out );
++}
++
++static ULONG WINAPI statics_AddRef( struct IRetailInfoStatics_compat *iface )
++{
++    struct retail_info_factory *impl = impl_from_IRetailInfoStatics( iface );
++    return IActivationFactory_AddRef( &impl->IActivationFactory_iface );
++}
++
++static ULONG WINAPI statics_Release( struct IRetailInfoStatics_compat *iface )
++{
++    struct retail_info_factory *impl = impl_from_IRetailInfoStatics( iface );
++    return IActivationFactory_Release( &impl->IActivationFactory_iface );
++}
++
++static HRESULT WINAPI statics_GetIids( struct IRetailInfoStatics_compat *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    if (iid_count) *iid_count = 0;
++    if (iids) *iids = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics_GetRuntimeClassName( struct IRetailInfoStatics_compat *iface, HSTRING *class_name )
++{
++    return WindowsCreateString( L"Windows.System.Profile.RetailInfo",
++                                wcslen( L"Windows.System.Profile.RetailInfo" ), class_name );
++}
++
++static HRESULT WINAPI statics_GetTrustLevel( struct IRetailInfoStatics_compat *iface, TrustLevel *trust_level )
++{
++    if (trust_level) *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics_get_IsDemoModeEnabled( struct IRetailInfoStatics_compat *iface, boolean *value )
++{
++    TRACE( "iface %p, value %p.\n", iface, value );
++    if (value) *value = FALSE;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics_get_Properties( struct IRetailInfoStatics_compat *iface, void **value )
++{
++    FIXME( "iface %p, value %p stub!\n", iface, value );
++    if (value) *value = NULL;
++    return E_NOTIMPL;
++}
++
++static const struct IRetailInfoStaticsVtbl_compat statics_vtbl =
++{
++    statics_QueryInterface,
++    statics_AddRef,
++    statics_Release,
++    statics_GetIids,
++    statics_GetRuntimeClassName,
++    statics_GetTrustLevel,
++    statics_get_IsDemoModeEnabled,
++    statics_get_Properties,
++};
++
++static struct retail_info_factory factory =
++{
++    { &retail_info_vtbl },
++    { &statics_vtbl },
++    1,
++};
++
++IActivationFactory *retail_info_factory = &factory.IActivationFactory_iface;
+diff --git a/dlls/windows.applicationmodel/core_application.c b/dlls/windows.applicationmodel/core_application.c
+new file mode 100644
+index 00000000000..6ee32ef6786
+--- /dev/null
++++ b/dlls/windows.applicationmodel/core_application.c
+@@ -0,0 +1,459 @@
++/* Minimal WinRT Windows.ApplicationModel.Core.CoreApplication implementation.
++ *
++ * Copyright (C) 2026
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ */
++
++#include "private.h"
++
++#include "wine/debug.h"
++
++WINE_DEFAULT_DEBUG_CHANNEL(model);
++
++struct core_application_statics
++{
++    IActivationFactory IActivationFactory_iface;
++    ICoreApplication ICoreApplication_iface;
++    LONG ref;
++};
++
++struct core_property_set
++{
++    IPropertySet IPropertySet_iface;
++    IMap_HSTRING_IInspectable IMap_HSTRING_IInspectable_iface;
++    LONG ref;
++};
++
++static struct core_property_set core_properties;
++
++static inline struct core_application_statics *impl_from_IActivationFactory( IActivationFactory *iface )
++{
++    return CONTAINING_RECORD( iface, struct core_application_statics, IActivationFactory_iface );
++}
++
++static inline struct core_application_statics *impl_from_ICoreApplication( ICoreApplication *iface )
++{
++    return CONTAINING_RECORD( iface, struct core_application_statics, ICoreApplication_iface );
++}
++
++static HRESULT core_application_query_interface( struct core_application_statics *impl, REFIID iid, void **out )
++{
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IActivationFactory ))
++    {
++        *out = &impl->IActivationFactory_iface;
++        IActivationFactory_AddRef( *out );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_ICoreApplication ))
++    {
++        *out = &impl->ICoreApplication_iface;
++        ICoreApplication_AddRef( *out );
++        return S_OK;
++    }
++
++    FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
++    *out = NULL;
++    return E_NOINTERFACE;
++}
++
++static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID iid, void **out )
++{
++    struct core_application_statics *impl = impl_from_IActivationFactory( iface );
++
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid( iid ), out );
++    return core_application_query_interface( impl, iid, out );
++}
++
++static ULONG WINAPI factory_AddRef( IActivationFactory *iface )
++{
++    struct core_application_statics *impl = impl_from_IActivationFactory( iface );
++    ULONG ref = InterlockedIncrement( &impl->ref );
++    TRACE( "iface %p increasing refcount to %lu.\n", iface, ref );
++    return ref;
++}
++
++static ULONG WINAPI factory_Release( IActivationFactory *iface )
++{
++    struct core_application_statics *impl = impl_from_IActivationFactory( iface );
++    ULONG ref = InterlockedDecrement( &impl->ref );
++    TRACE( "iface %p decreasing refcount to %lu.\n", iface, ref );
++    return ref;
++}
++
++static HRESULT WINAPI factory_GetIids( IActivationFactory *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    if (iid_count) *iid_count = 0;
++    if (iids) *iids = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI factory_GetRuntimeClassName( IActivationFactory *iface, HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p semi-stub.\n", iface, class_name );
++    return WindowsCreateString( RuntimeClass_Windows_ApplicationModel_Core_CoreApplication,
++                                wcslen( RuntimeClass_Windows_ApplicationModel_Core_CoreApplication ),
++                                class_name );
++}
++
++static HRESULT WINAPI factory_GetTrustLevel( IActivationFactory *iface, TrustLevel *trust_level )
++{
++    FIXME( "iface %p, trust_level %p semi-stub.\n", iface, trust_level );
++    if (trust_level) *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI factory_ActivateInstance( IActivationFactory *iface, IInspectable **instance )
++{
++    FIXME( "iface %p, instance %p stub!\n", iface, instance );
++    if (instance) *instance = NULL;
++    return E_NOTIMPL;
++}
++
++static const struct IActivationFactoryVtbl factory_vtbl =
++{
++    factory_QueryInterface,
++    factory_AddRef,
++    factory_Release,
++    factory_GetIids,
++    factory_GetRuntimeClassName,
++    factory_GetTrustLevel,
++    factory_ActivateInstance,
++};
++
++static HRESULT WINAPI core_QueryInterface( ICoreApplication *iface, REFIID iid, void **out )
++{
++    struct core_application_statics *impl = impl_from_ICoreApplication( iface );
++
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid( iid ), out );
++    return core_application_query_interface( impl, iid, out );
++}
++
++static ULONG WINAPI core_AddRef( ICoreApplication *iface )
++{
++    struct core_application_statics *impl = impl_from_ICoreApplication( iface );
++    return IActivationFactory_AddRef( &impl->IActivationFactory_iface );
++}
++
++static ULONG WINAPI core_Release( ICoreApplication *iface )
++{
++    struct core_application_statics *impl = impl_from_ICoreApplication( iface );
++    return IActivationFactory_Release( &impl->IActivationFactory_iface );
++}
++
++static HRESULT WINAPI core_GetIids( ICoreApplication *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    if (iid_count) *iid_count = 0;
++    if (iids) *iids = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI core_GetRuntimeClassName( ICoreApplication *iface, HSTRING *class_name )
++{
++    FIXME( "iface %p, class_name %p semi-stub.\n", iface, class_name );
++    return WindowsCreateString( RuntimeClass_Windows_ApplicationModel_Core_CoreApplication,
++                                wcslen( RuntimeClass_Windows_ApplicationModel_Core_CoreApplication ),
++                                class_name );
++}
++
++static HRESULT WINAPI core_GetTrustLevel( ICoreApplication *iface, TrustLevel *trust_level )
++{
++    FIXME( "iface %p, trust_level %p semi-stub.\n", iface, trust_level );
++    if (trust_level) *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI core_get_Id( ICoreApplication *iface, HSTRING *value )
++{
++    FIXME( "iface %p, value %p semi-stub.\n", iface, value );
++    return WindowsCreateString( L"", 0, value );
++}
++
++static HRESULT WINAPI core_add_Suspending( ICoreApplication *iface,
++        __FIEventHandler_1_Windows__CApplicationModel__CSuspendingEventArgs *handler,
++        EventRegistrationToken *token )
++{
++    FIXME( "iface %p, handler %p, token %p stub!\n", iface, handler, token );
++    if (token) token->value = 1;
++    return S_OK;
++}
++
++static HRESULT WINAPI core_remove_Suspending( ICoreApplication *iface, EventRegistrationToken token )
++{
++    FIXME( "iface %p, token %#I64x stub!\n", iface, token.value );
++    return S_OK;
++}
++
++static HRESULT WINAPI core_add_Resuming( ICoreApplication *iface,
++        __FIEventHandler_1_IInspectable *handler, EventRegistrationToken *token )
++{
++    FIXME( "iface %p, handler %p, token %p stub!\n", iface, handler, token );
++    if (token) token->value = 1;
++    return S_OK;
++}
++
++static HRESULT WINAPI core_remove_Resuming( ICoreApplication *iface, EventRegistrationToken token )
++{
++    FIXME( "iface %p, token %#I64x stub!\n", iface, token.value );
++    return S_OK;
++}
++
++static HRESULT WINAPI core_get_Properties( ICoreApplication *iface, IPropertySet **value )
++{
++    FIXME( "iface %p, value %p semi-stub.\n", iface, value );
++    if (!value) return E_POINTER;
++    *value = &core_properties.IPropertySet_iface;
++    IPropertySet_AddRef( *value );
++    return S_OK;
++}
++
++static HRESULT WINAPI core_GetCurrentView( ICoreApplication *iface, ICoreApplicationView **value )
++{
++    FIXME( "iface %p, value %p stub!\n", iface, value );
++    if (value) *value = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI core_Run( ICoreApplication *iface, IFrameworkViewSource *view_source )
++{
++    FIXME( "iface %p, view_source %p stub!\n", iface, view_source );
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI core_RunWithActivationFactories( ICoreApplication *iface, IGetActivationFactory *factory )
++{
++    FIXME( "iface %p, factory %p stub!\n", iface, factory );
++    return E_NOTIMPL;
++}
++
++static const struct ICoreApplicationVtbl core_vtbl =
++{
++    core_QueryInterface,
++    core_AddRef,
++    core_Release,
++    core_GetIids,
++    core_GetRuntimeClassName,
++    core_GetTrustLevel,
++    core_get_Id,
++    core_add_Suspending,
++    core_remove_Suspending,
++    core_add_Resuming,
++    core_remove_Resuming,
++    core_get_Properties,
++    core_GetCurrentView,
++    core_Run,
++    core_RunWithActivationFactories,
++};
++
++static inline struct core_property_set *impl_from_IPropertySet( IPropertySet *iface )
++{
++    return CONTAINING_RECORD( iface, struct core_property_set, IPropertySet_iface );
++}
++
++static inline struct core_property_set *impl_from_IMap_HSTRING_IInspectable( IMap_HSTRING_IInspectable *iface )
++{
++    return CONTAINING_RECORD( iface, struct core_property_set, IMap_HSTRING_IInspectable_iface );
++}
++
++static HRESULT property_set_query_interface( struct core_property_set *impl, REFIID iid, void **out )
++{
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IPropertySet ))
++    {
++        *out = &impl->IPropertySet_iface;
++        IPropertySet_AddRef( *out );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_IMap_HSTRING_IInspectable ))
++    {
++        *out = &impl->IMap_HSTRING_IInspectable_iface;
++        IPropertySet_AddRef( &impl->IPropertySet_iface );
++        return S_OK;
++    }
++
++    FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
++    *out = NULL;
++    return E_NOINTERFACE;
++}
++
++static HRESULT WINAPI property_set_QueryInterface( IPropertySet *iface, REFIID iid, void **out )
++{
++    struct core_property_set *impl = impl_from_IPropertySet( iface );
++
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid( iid ), out );
++    return property_set_query_interface( impl, iid, out );
++}
++
++static ULONG WINAPI property_set_AddRef( IPropertySet *iface )
++{
++    struct core_property_set *impl = impl_from_IPropertySet( iface );
++    return InterlockedIncrement( &impl->ref );
++}
++
++static ULONG WINAPI property_set_Release( IPropertySet *iface )
++{
++    struct core_property_set *impl = impl_from_IPropertySet( iface );
++    return InterlockedDecrement( &impl->ref );
++}
++
++static HRESULT WINAPI property_set_GetIids( IPropertySet *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    if (iid_count) *iid_count = 0;
++    if (iids) *iids = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI property_set_GetRuntimeClassName( IPropertySet *iface, HSTRING *class_name )
++{
++    return WindowsCreateString( L"Windows.Foundation.Collections.ValueSet",
++                                wcslen( L"Windows.Foundation.Collections.ValueSet" ), class_name );
++}
++
++static HRESULT WINAPI property_set_GetTrustLevel( IPropertySet *iface, TrustLevel *trust_level )
++{
++    if (trust_level) *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static const struct IPropertySetVtbl property_set_vtbl =
++{
++    property_set_QueryInterface,
++    property_set_AddRef,
++    property_set_Release,
++    property_set_GetIids,
++    property_set_GetRuntimeClassName,
++    property_set_GetTrustLevel,
++};
++
++static HRESULT WINAPI map_QueryInterface( IMap_HSTRING_IInspectable *iface, REFIID iid, void **out )
++{
++    struct core_property_set *impl = impl_from_IMap_HSTRING_IInspectable( iface );
++
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid( iid ), out );
++    return property_set_query_interface( impl, iid, out );
++}
++
++static ULONG WINAPI map_AddRef( IMap_HSTRING_IInspectable *iface )
++{
++    struct core_property_set *impl = impl_from_IMap_HSTRING_IInspectable( iface );
++    return IPropertySet_AddRef( &impl->IPropertySet_iface );
++}
++
++static ULONG WINAPI map_Release( IMap_HSTRING_IInspectable *iface )
++{
++    struct core_property_set *impl = impl_from_IMap_HSTRING_IInspectable( iface );
++    return IPropertySet_Release( &impl->IPropertySet_iface );
++}
++
++static HRESULT WINAPI map_GetIids( IMap_HSTRING_IInspectable *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    if (iid_count) *iid_count = 0;
++    if (iids) *iids = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI map_GetRuntimeClassName( IMap_HSTRING_IInspectable *iface, HSTRING *class_name )
++{
++    return WindowsCreateString( L"Windows.Foundation.Collections.ValueSet",
++                                wcslen( L"Windows.Foundation.Collections.ValueSet" ), class_name );
++}
++
++static HRESULT WINAPI map_GetTrustLevel( IMap_HSTRING_IInspectable *iface, TrustLevel *trust_level )
++{
++    if (trust_level) *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI map_Lookup( IMap_HSTRING_IInspectable *iface, HSTRING key, IInspectable **value )
++{
++    FIXME( "iface %p, key %s, value %p stub!\n", iface, debugstr_hstring(key), value );
++    if (value) *value = NULL;
++    return E_BOUNDS;
++}
++
++static HRESULT WINAPI map_get_Size( IMap_HSTRING_IInspectable *iface, unsigned int *size )
++{
++    TRACE( "iface %p, size %p.\n", iface, size );
++    if (size) *size = 0;
++    return S_OK;
++}
++
++static HRESULT WINAPI map_HasKey( IMap_HSTRING_IInspectable *iface, HSTRING key, boolean *found )
++{
++    TRACE( "iface %p, key %s, found %p.\n", iface, debugstr_hstring(key), found );
++    if (found) *found = FALSE;
++    return S_OK;
++}
++
++static HRESULT WINAPI map_GetView( IMap_HSTRING_IInspectable *iface, IMapView_HSTRING_IInspectable **view )
++{
++    FIXME( "iface %p, view %p stub!\n", iface, view );
++    if (view) *view = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI map_Insert( IMap_HSTRING_IInspectable *iface, HSTRING key, IInspectable *value, boolean *replaced )
++{
++    FIXME( "iface %p, key %s, value %p, replaced %p semi-stub.\n", iface, debugstr_hstring(key), value, replaced );
++    if (replaced) *replaced = FALSE;
++    return S_OK;
++}
++
++static HRESULT WINAPI map_Remove( IMap_HSTRING_IInspectable *iface, HSTRING key )
++{
++    FIXME( "iface %p, key %s stub!\n", iface, debugstr_hstring(key) );
++    return S_OK;
++}
++
++static HRESULT WINAPI map_Clear( IMap_HSTRING_IInspectable *iface )
++{
++    FIXME( "iface %p stub!\n", iface );
++    return S_OK;
++}
++
++static const struct IMap_HSTRING_IInspectableVtbl map_vtbl =
++{
++    map_QueryInterface,
++    map_AddRef,
++    map_Release,
++    map_GetIids,
++    map_GetRuntimeClassName,
++    map_GetTrustLevel,
++    map_Lookup,
++    map_get_Size,
++    map_HasKey,
++    map_GetView,
++    map_Insert,
++    map_Remove,
++    map_Clear,
++};
++
++static struct core_property_set core_properties =
++{
++    { &property_set_vtbl },
++    { &map_vtbl },
++    1,
++};
++
++static struct core_application_statics core_application_statics =
++{
++    { &factory_vtbl },
++    { &core_vtbl },
++    1,
++};
++
++IActivationFactory *core_application_factory = &core_application_statics.IActivationFactory_iface;
+diff --git a/dlls/windows.security.authentication.onlineid/protection_policy_manager.c b/dlls/windows.security.authentication.onlineid/protection_policy_manager.c
+new file mode 100644
+index 00000000000..b307dab6699
+--- /dev/null
++++ b/dlls/windows.security.authentication.onlineid/protection_policy_manager.c
+@@ -0,0 +1,390 @@
++/* Minimal Windows.Security.EnterpriseData.ProtectionPolicyManager shim.
++ *
++ * Copyright (C) 2026
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ */
++
++#include "private.h"
++
++#include "wine/debug.h"
++
++WINE_DEFAULT_DEBUG_CHANNEL(onlineid);
++
++static const GUID IID_IProtectionPolicyManagerStatics_compat =
++    {0xc0bffc66,0x8c3d,0x4d56,{0x88,0x04,0xc6,0x8f,0x0a,0xd3,0x2e,0xc5}};
++static const GUID IID_IProtectionPolicyManagerStatics2_compat =
++    {0xb68f9a8c,0x39e0,0x4649,{0xb2,0xe4,0x07,0x0a,0xb8,0xa5,0x79,0xb3}};
++
++typedef enum ProtectionPolicyEvaluationResult_compat
++{
++    ProtectionPolicyEvaluationResult_Allowed = 0,
++} ProtectionPolicyEvaluationResult_compat;
++
++typedef struct IProtectionPolicyManagerStatics_compat IProtectionPolicyManagerStatics_compat;
++typedef struct IProtectionPolicyManagerStatics2_compat IProtectionPolicyManagerStatics2_compat;
++
++typedef struct IProtectionPolicyManagerStaticsVtbl_compat
++{
++    HRESULT (STDMETHODCALLTYPE *QueryInterface)( IProtectionPolicyManagerStatics_compat *iface, REFIID iid, void **out );
++    ULONG (STDMETHODCALLTYPE *AddRef)( IProtectionPolicyManagerStatics_compat *iface );
++    ULONG (STDMETHODCALLTYPE *Release)( IProtectionPolicyManagerStatics_compat *iface );
++    HRESULT (STDMETHODCALLTYPE *GetIids)( IProtectionPolicyManagerStatics_compat *iface, ULONG *iid_count, IID **iids );
++    HRESULT (STDMETHODCALLTYPE *GetRuntimeClassName)( IProtectionPolicyManagerStatics_compat *iface, HSTRING *class_name );
++    HRESULT (STDMETHODCALLTYPE *GetTrustLevel)( IProtectionPolicyManagerStatics_compat *iface, TrustLevel *trust_level );
++    HRESULT (STDMETHODCALLTYPE *IsIdentityManaged)( IProtectionPolicyManagerStatics_compat *iface, HSTRING identity, boolean *managed );
++    HRESULT (STDMETHODCALLTYPE *TryApplyProcessUIPolicy)( IProtectionPolicyManagerStatics_compat *iface, HSTRING identity, boolean *applied );
++    HRESULT (STDMETHODCALLTYPE *ClearProcessUIPolicy)( IProtectionPolicyManagerStatics_compat *iface );
++    HRESULT (STDMETHODCALLTYPE *CreateCurrentThreadNetworkContext)( IProtectionPolicyManagerStatics_compat *iface, HSTRING identity, IInspectable **context );
++    HRESULT (STDMETHODCALLTYPE *GetPrimaryManagedIdentityForNetworkEndpointAsync)( IProtectionPolicyManagerStatics_compat *iface, IInspectable *endpoint, IInspectable **operation );
++    HRESULT (STDMETHODCALLTYPE *RevokeContent)( IProtectionPolicyManagerStatics_compat *iface, HSTRING identity );
++    HRESULT (STDMETHODCALLTYPE *GetForCurrentView)( IProtectionPolicyManagerStatics_compat *iface, IInspectable **manager );
++    HRESULT (STDMETHODCALLTYPE *ProtectedAccessSuspending)( IProtectionPolicyManagerStatics_compat *iface, IInspectable *handler, EventRegistrationToken *token );
++    HRESULT (STDMETHODCALLTYPE *RemoveProtectedAccessSuspending)( IProtectionPolicyManagerStatics_compat *iface, EventRegistrationToken token );
++    HRESULT (STDMETHODCALLTYPE *ProtectedAccessResumed)( IProtectionPolicyManagerStatics_compat *iface, IInspectable *handler, EventRegistrationToken *token );
++    HRESULT (STDMETHODCALLTYPE *RemoveProtectedAccessResumed)( IProtectionPolicyManagerStatics_compat *iface, EventRegistrationToken token );
++    HRESULT (STDMETHODCALLTYPE *ProtectedContentRevoked)( IProtectionPolicyManagerStatics_compat *iface, IInspectable *handler, EventRegistrationToken *token );
++    HRESULT (STDMETHODCALLTYPE *RemoveProtectedContentRevoked)( IProtectionPolicyManagerStatics_compat *iface, EventRegistrationToken token );
++    HRESULT (STDMETHODCALLTYPE *CheckAccess)( IProtectionPolicyManagerStatics_compat *iface, HSTRING source, HSTRING target, ProtectionPolicyEvaluationResult_compat *result );
++    HRESULT (STDMETHODCALLTYPE *RequestAccessAsync)( IProtectionPolicyManagerStatics_compat *iface, HSTRING source, HSTRING target, IInspectable **operation );
++} IProtectionPolicyManagerStaticsVtbl_compat;
++
++struct IProtectionPolicyManagerStatics_compat
++{
++    const IProtectionPolicyManagerStaticsVtbl_compat *lpVtbl;
++};
++
++typedef struct IProtectionPolicyManagerStatics2Vtbl_compat
++{
++    HRESULT (STDMETHODCALLTYPE *QueryInterface)( IProtectionPolicyManagerStatics2_compat *iface, REFIID iid, void **out );
++    ULONG (STDMETHODCALLTYPE *AddRef)( IProtectionPolicyManagerStatics2_compat *iface );
++    ULONG (STDMETHODCALLTYPE *Release)( IProtectionPolicyManagerStatics2_compat *iface );
++    HRESULT (STDMETHODCALLTYPE *GetIids)( IProtectionPolicyManagerStatics2_compat *iface, ULONG *iid_count, IID **iids );
++    HRESULT (STDMETHODCALLTYPE *GetRuntimeClassName)( IProtectionPolicyManagerStatics2_compat *iface, HSTRING *class_name );
++    HRESULT (STDMETHODCALLTYPE *GetTrustLevel)( IProtectionPolicyManagerStatics2_compat *iface, TrustLevel *trust_level );
++    HRESULT (STDMETHODCALLTYPE *HasContentBeenRevokedSince)( IProtectionPolicyManagerStatics2_compat *iface, HSTRING identity, DateTime since, boolean *revoked );
++    HRESULT (STDMETHODCALLTYPE *CheckAccessForApp)( IProtectionPolicyManagerStatics2_compat *iface, HSTRING source, HSTRING app, ProtectionPolicyEvaluationResult_compat *result );
++    HRESULT (STDMETHODCALLTYPE *RequestAccessForAppAsync)( IProtectionPolicyManagerStatics2_compat *iface, HSTRING source, HSTRING app, IInspectable **operation );
++    HRESULT (STDMETHODCALLTYPE *GetEnforcementLevel)( IProtectionPolicyManagerStatics2_compat *iface, HSTRING identity, int *level );
++    HRESULT (STDMETHODCALLTYPE *IsUserDecryptionAllowed)( IProtectionPolicyManagerStatics2_compat *iface, HSTRING identity, boolean *allowed );
++    HRESULT (STDMETHODCALLTYPE *IsProtectionUnderLockRequired)( IProtectionPolicyManagerStatics2_compat *iface, HSTRING identity, boolean *required );
++    HRESULT (STDMETHODCALLTYPE *PolicyChanged)( IProtectionPolicyManagerStatics2_compat *iface, IInspectable *handler, EventRegistrationToken *token );
++    HRESULT (STDMETHODCALLTYPE *RemovePolicyChanged)( IProtectionPolicyManagerStatics2_compat *iface, EventRegistrationToken token );
++    HRESULT (STDMETHODCALLTYPE *IsProtectionEnabled)( IProtectionPolicyManagerStatics2_compat *iface, boolean *enabled );
++} IProtectionPolicyManagerStatics2Vtbl_compat;
++
++struct IProtectionPolicyManagerStatics2_compat
++{
++    const IProtectionPolicyManagerStatics2Vtbl_compat *lpVtbl;
++};
++
++struct protection_policy_manager
++{
++    IActivationFactory IActivationFactory_iface;
++    IProtectionPolicyManagerStatics_compat IProtectionPolicyManagerStatics_iface;
++    IProtectionPolicyManagerStatics2_compat IProtectionPolicyManagerStatics2_iface;
++    LONG ref;
++};
++
++static inline struct protection_policy_manager *impl_from_IActivationFactory( IActivationFactory *iface )
++{
++    return CONTAINING_RECORD( iface, struct protection_policy_manager, IActivationFactory_iface );
++}
++
++static inline struct protection_policy_manager *impl_from_IStatics( IProtectionPolicyManagerStatics_compat *iface )
++{
++    return CONTAINING_RECORD( iface, struct protection_policy_manager, IProtectionPolicyManagerStatics_iface );
++}
++
++static inline struct protection_policy_manager *impl_from_IStatics2( IProtectionPolicyManagerStatics2_compat *iface )
++{
++    return CONTAINING_RECORD( iface, struct protection_policy_manager, IProtectionPolicyManagerStatics2_iface );
++}
++
++static HRESULT manager_query_interface( struct protection_policy_manager *impl, REFIID iid, void **out )
++{
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IActivationFactory ))
++    {
++        *out = &impl->IActivationFactory_iface;
++        IActivationFactory_AddRef( *out );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_IProtectionPolicyManagerStatics_compat ))
++    {
++        *out = &impl->IProtectionPolicyManagerStatics_iface;
++        IActivationFactory_AddRef( &impl->IActivationFactory_iface );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_IProtectionPolicyManagerStatics2_compat ))
++    {
++        *out = &impl->IProtectionPolicyManagerStatics2_iface;
++        IActivationFactory_AddRef( &impl->IActivationFactory_iface );
++        return S_OK;
++    }
++
++    FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
++    *out = NULL;
++    return E_NOINTERFACE;
++}
++
++static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID iid, void **out )
++{
++    return manager_query_interface( impl_from_IActivationFactory( iface ), iid, out );
++}
++
++static ULONG WINAPI factory_AddRef( IActivationFactory *iface )
++{
++    return InterlockedIncrement( &impl_from_IActivationFactory( iface )->ref );
++}
++
++static ULONG WINAPI factory_Release( IActivationFactory *iface )
++{
++    return InterlockedDecrement( &impl_from_IActivationFactory( iface )->ref );
++}
++
++static HRESULT WINAPI factory_GetIids( IActivationFactory *iface, ULONG *iid_count, IID **iids )
++{
++    if (iid_count) *iid_count = 0;
++    if (iids) *iids = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI factory_GetRuntimeClassName( IActivationFactory *iface, HSTRING *class_name )
++{
++    static const WCHAR name[] = L"Windows.Security.EnterpriseData.ProtectionPolicyManager";
++    return WindowsCreateString( name, wcslen( name ), class_name );
++}
++
++static HRESULT WINAPI factory_GetTrustLevel( IActivationFactory *iface, TrustLevel *trust_level )
++{
++    if (trust_level) *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI factory_ActivateInstance( IActivationFactory *iface, IInspectable **instance )
++{
++    if (instance) *instance = NULL;
++    return E_NOTIMPL;
++}
++
++static const struct IActivationFactoryVtbl factory_vtbl =
++{
++    factory_QueryInterface,
++    factory_AddRef,
++    factory_Release,
++    factory_GetIids,
++    factory_GetRuntimeClassName,
++    factory_GetTrustLevel,
++    factory_ActivateInstance,
++};
++
++#define DEFINE_STATICS_IINSPECTABLE(prefix, iface_type, impl_from) \
++static HRESULT WINAPI prefix##_QueryInterface( iface_type *iface, REFIID iid, void **out ) \
++{ \
++    return manager_query_interface( impl_from( iface ), iid, out ); \
++} \
++static ULONG WINAPI prefix##_AddRef( iface_type *iface ) \
++{ \
++    return IActivationFactory_AddRef( &impl_from( iface )->IActivationFactory_iface ); \
++} \
++static ULONG WINAPI prefix##_Release( iface_type *iface ) \
++{ \
++    return IActivationFactory_Release( &impl_from( iface )->IActivationFactory_iface ); \
++} \
++static HRESULT WINAPI prefix##_GetIids( iface_type *iface, ULONG *iid_count, IID **iids ) \
++{ \
++    if (iid_count) *iid_count = 0; \
++    if (iids) *iids = NULL; \
++    return S_OK; \
++} \
++static HRESULT WINAPI prefix##_GetRuntimeClassName( iface_type *iface, HSTRING *class_name ) \
++{ \
++    return factory_GetRuntimeClassName( NULL, class_name ); \
++} \
++static HRESULT WINAPI prefix##_GetTrustLevel( iface_type *iface, TrustLevel *trust_level ) \
++{ \
++    return factory_GetTrustLevel( NULL, trust_level ); \
++}
++
++DEFINE_STATICS_IINSPECTABLE( statics, IProtectionPolicyManagerStatics_compat, impl_from_IStatics );
++DEFINE_STATICS_IINSPECTABLE( statics2, IProtectionPolicyManagerStatics2_compat, impl_from_IStatics2 );
++
++static HRESULT WINAPI statics_IsIdentityManaged( IProtectionPolicyManagerStatics_compat *iface, HSTRING identity, boolean *managed )
++{
++    FIXME( "iface %p, identity %s, managed %p semi-stub.\n", iface, debugstr_hstring(identity), managed );
++    if (managed) *managed = FALSE;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics_TryApplyProcessUIPolicy( IProtectionPolicyManagerStatics_compat *iface, HSTRING identity, boolean *applied )
++{
++    if (applied) *applied = FALSE;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics_ClearProcessUIPolicy( IProtectionPolicyManagerStatics_compat *iface )
++{
++    return S_OK;
++}
++
++static HRESULT WINAPI statics_CreateCurrentThreadNetworkContext( IProtectionPolicyManagerStatics_compat *iface, HSTRING identity, IInspectable **context )
++{
++    if (context) *context = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics_GetPrimaryManagedIdentityForNetworkEndpointAsync( IProtectionPolicyManagerStatics_compat *iface, IInspectable *endpoint, IInspectable **operation )
++{
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI statics_RevokeContent( IProtectionPolicyManagerStatics_compat *iface, HSTRING identity )
++{
++    return S_OK;
++}
++
++static HRESULT WINAPI statics_GetForCurrentView( IProtectionPolicyManagerStatics_compat *iface, IInspectable **manager )
++{
++    if (manager) *manager = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI statics_event_add( IProtectionPolicyManagerStatics_compat *iface, IInspectable *handler, EventRegistrationToken *token )
++{
++    if (token) token->value = 1;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics_event_remove( IProtectionPolicyManagerStatics_compat *iface, EventRegistrationToken token )
++{
++    return S_OK;
++}
++
++static HRESULT WINAPI statics_CheckAccess( IProtectionPolicyManagerStatics_compat *iface, HSTRING source, HSTRING target, ProtectionPolicyEvaluationResult_compat *result )
++{
++    FIXME( "iface %p, source %s, target %s, result %p semi-stub.\n", iface, debugstr_hstring(source), debugstr_hstring(target), result );
++    if (result) *result = ProtectionPolicyEvaluationResult_Allowed;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics_RequestAccessAsync( IProtectionPolicyManagerStatics_compat *iface, HSTRING source, HSTRING target, IInspectable **operation )
++{
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++static const IProtectionPolicyManagerStaticsVtbl_compat statics_vtbl =
++{
++    statics_QueryInterface,
++    statics_AddRef,
++    statics_Release,
++    statics_GetIids,
++    statics_GetRuntimeClassName,
++    statics_GetTrustLevel,
++    statics_IsIdentityManaged,
++    statics_TryApplyProcessUIPolicy,
++    statics_ClearProcessUIPolicy,
++    statics_CreateCurrentThreadNetworkContext,
++    statics_GetPrimaryManagedIdentityForNetworkEndpointAsync,
++    statics_RevokeContent,
++    statics_GetForCurrentView,
++    statics_event_add,
++    statics_event_remove,
++    statics_event_add,
++    statics_event_remove,
++    statics_event_add,
++    statics_event_remove,
++    statics_CheckAccess,
++    statics_RequestAccessAsync,
++};
++
++static HRESULT WINAPI statics2_HasContentBeenRevokedSince( IProtectionPolicyManagerStatics2_compat *iface, HSTRING identity, DateTime since, boolean *revoked )
++{
++    if (revoked) *revoked = FALSE;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics2_CheckAccessForApp( IProtectionPolicyManagerStatics2_compat *iface, HSTRING source, HSTRING app, ProtectionPolicyEvaluationResult_compat *result )
++{
++    if (result) *result = ProtectionPolicyEvaluationResult_Allowed;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics2_RequestAccessForAppAsync( IProtectionPolicyManagerStatics2_compat *iface, HSTRING source, HSTRING app, IInspectable **operation )
++{
++    if (operation) *operation = NULL;
++    return E_NOTIMPL;
++}
++
++static HRESULT WINAPI statics2_GetEnforcementLevel( IProtectionPolicyManagerStatics2_compat *iface, HSTRING identity, int *level )
++{
++    if (level) *level = 0;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics2_IsUserDecryptionAllowed( IProtectionPolicyManagerStatics2_compat *iface, HSTRING identity, boolean *allowed )
++{
++    if (allowed) *allowed = TRUE;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics2_IsProtectionUnderLockRequired( IProtectionPolicyManagerStatics2_compat *iface, HSTRING identity, boolean *required )
++{
++    if (required) *required = FALSE;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics2_event_add( IProtectionPolicyManagerStatics2_compat *iface, IInspectable *handler, EventRegistrationToken *token )
++{
++    if (token) token->value = 1;
++    return S_OK;
++}
++
++static HRESULT WINAPI statics2_event_remove( IProtectionPolicyManagerStatics2_compat *iface, EventRegistrationToken token )
++{
++    return S_OK;
++}
++
++static HRESULT WINAPI statics2_IsProtectionEnabled( IProtectionPolicyManagerStatics2_compat *iface, boolean *enabled )
++{
++    if (enabled) *enabled = FALSE;
++    return S_OK;
++}
++
++static const IProtectionPolicyManagerStatics2Vtbl_compat statics2_vtbl =
++{
++    statics2_QueryInterface,
++    statics2_AddRef,
++    statics2_Release,
++    statics2_GetIids,
++    statics2_GetRuntimeClassName,
++    statics2_GetTrustLevel,
++    statics2_HasContentBeenRevokedSince,
++    statics2_CheckAccessForApp,
++    statics2_RequestAccessForAppAsync,
++    statics2_GetEnforcementLevel,
++    statics2_IsUserDecryptionAllowed,
++    statics2_IsProtectionUnderLockRequired,
++    statics2_event_add,
++    statics2_event_remove,
++    statics2_IsProtectionEnabled,
++};
++
++static struct protection_policy_manager manager =
++{
++    { &factory_vtbl },
++    { &statics_vtbl },
++    { &statics2_vtbl },
++    1,
++};
++
++IActivationFactory *protection_policy_manager_factory = &manager.IActivationFactory_iface;
+diff --git a/dlls/windows.security.authentication.onlineid/web_authentication_core_manager.c b/dlls/windows.security.authentication.onlineid/web_authentication_core_manager.c
+new file mode 100644
+index 00000000000..9ebfe118854
+--- /dev/null
++++ b/dlls/windows.security.authentication.onlineid/web_authentication_core_manager.c
+@@ -0,0 +1,648 @@
++/* Minimal Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager shim.
++ *
++ * Copyright (C) 2026
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ */
++
++#include "private.h"
++
++#include "wine/debug.h"
++
++WINE_DEFAULT_DEBUG_CHANNEL(onlineid);
++
++static const GUID IID_IWebAuthenticationCoreManagerStatics_compat =
++    {0x6aca7c92, 0xa581, 0x4479, {0x9c,0x10, 0x75,0x2e,0xff,0x44,0xfd,0x34}};
++static const GUID IID_IWebAuthenticationCoreManagerStatics2_compat =
++    {0x54e633fe, 0x96e0, 0x41e8, {0x98,0x32, 0x12,0x98,0x89,0x7c,0x2a,0xaf}};
++
++typedef struct IWebAuthenticationCoreManagerStatics_compat IWebAuthenticationCoreManagerStatics_compat;
++typedef struct IWebAuthenticationCoreManagerStatics2_compat IWebAuthenticationCoreManagerStatics2_compat;
++typedef struct IWebAuthProviderOperation_compat IWebAuthProviderOperation_compat;
++typedef struct IWebAccountProvider_compat IWebAccountProvider_compat;
++
++typedef struct IWebAuthenticationCoreManagerStaticsVtbl_compat
++{
++    HRESULT (STDMETHODCALLTYPE *QueryInterface)( IWebAuthenticationCoreManagerStatics_compat *iface, REFIID iid, void **out );
++    ULONG (STDMETHODCALLTYPE *AddRef)( IWebAuthenticationCoreManagerStatics_compat *iface );
++    ULONG (STDMETHODCALLTYPE *Release)( IWebAuthenticationCoreManagerStatics_compat *iface );
++    HRESULT (STDMETHODCALLTYPE *GetIids)( IWebAuthenticationCoreManagerStatics_compat *iface, ULONG *iid_count, IID **iids );
++    HRESULT (STDMETHODCALLTYPE *GetRuntimeClassName)( IWebAuthenticationCoreManagerStatics_compat *iface, HSTRING *class_name );
++    HRESULT (STDMETHODCALLTYPE *GetTrustLevel)( IWebAuthenticationCoreManagerStatics_compat *iface, TrustLevel *trust_level );
++    HRESULT (STDMETHODCALLTYPE *GetTokenSilentlyAsync)( IWebAuthenticationCoreManagerStatics_compat *iface, void *request, void **operation );
++    HRESULT (STDMETHODCALLTYPE *GetTokenSilentlyWithWebAccountAsync)( IWebAuthenticationCoreManagerStatics_compat *iface, void *request, void *web_account, void **operation );
++    HRESULT (STDMETHODCALLTYPE *RequestTokenAsync)( IWebAuthenticationCoreManagerStatics_compat *iface, void *request, void **operation );
++    HRESULT (STDMETHODCALLTYPE *RequestTokenWithWebAccountAsync)( IWebAuthenticationCoreManagerStatics_compat *iface, void *request, void *web_account, void **operation );
++    HRESULT (STDMETHODCALLTYPE *FindAccountAsync)( IWebAuthenticationCoreManagerStatics_compat *iface, void *provider, HSTRING web_account_id, void **operation );
++    HRESULT (STDMETHODCALLTYPE *FindAccountProviderAsync)( IWebAuthenticationCoreManagerStatics_compat *iface, HSTRING web_account_provider_id, void **operation );
++    HRESULT (STDMETHODCALLTYPE *FindAccountProviderWithAuthorityAsync)( IWebAuthenticationCoreManagerStatics_compat *iface, HSTRING web_account_provider_id, HSTRING authority, void **operation );
++    HRESULT (STDMETHODCALLTYPE *FindAccountProviderWithAuthorityForUserAsync)( IWebAuthenticationCoreManagerStatics_compat *iface, void *user, HSTRING web_account_provider_id, HSTRING authority, void **operation );
++} IWebAuthenticationCoreManagerStaticsVtbl_compat;
++
++struct IWebAuthenticationCoreManagerStatics_compat
++{
++    const IWebAuthenticationCoreManagerStaticsVtbl_compat *lpVtbl;
++};
++
++typedef struct IWebAuthenticationCoreManagerStatics2Vtbl_compat
++{
++    HRESULT (STDMETHODCALLTYPE *QueryInterface)( IWebAuthenticationCoreManagerStatics2_compat *iface, REFIID iid, void **out );
++    ULONG (STDMETHODCALLTYPE *AddRef)( IWebAuthenticationCoreManagerStatics2_compat *iface );
++    ULONG (STDMETHODCALLTYPE *Release)( IWebAuthenticationCoreManagerStatics2_compat *iface );
++    HRESULT (STDMETHODCALLTYPE *GetIids)( IWebAuthenticationCoreManagerStatics2_compat *iface, ULONG *iid_count, IID **iids );
++    HRESULT (STDMETHODCALLTYPE *GetRuntimeClassName)( IWebAuthenticationCoreManagerStatics2_compat *iface, HSTRING *class_name );
++    HRESULT (STDMETHODCALLTYPE *GetTrustLevel)( IWebAuthenticationCoreManagerStatics2_compat *iface, TrustLevel *trust_level );
++    HRESULT (STDMETHODCALLTYPE *FindAllAccountsAsync)( IWebAuthenticationCoreManagerStatics2_compat *iface, void *provider, void **operation );
++    HRESULT (STDMETHODCALLTYPE *FindSystemAccountProviderAsync)( IWebAuthenticationCoreManagerStatics2_compat *iface, HSTRING web_account_provider_id, void **operation );
++    HRESULT (STDMETHODCALLTYPE *FindSystemAccountProviderWithAuthorityAsync)( IWebAuthenticationCoreManagerStatics2_compat *iface, HSTRING web_account_provider_id, HSTRING authority, void **operation );
++    HRESULT (STDMETHODCALLTYPE *FindSystemAccountProviderWithAuthorityForUserAsync)( IWebAuthenticationCoreManagerStatics2_compat *iface, void *user, HSTRING web_account_provider_id, HSTRING authority, void **operation );
++} IWebAuthenticationCoreManagerStatics2Vtbl_compat;
++
++struct IWebAuthenticationCoreManagerStatics2_compat
++{
++    const IWebAuthenticationCoreManagerStatics2Vtbl_compat *lpVtbl;
++};
++
++typedef struct IWebAuthProviderOperationVtbl_compat
++{
++    HRESULT (STDMETHODCALLTYPE *QueryInterface)( IWebAuthProviderOperation_compat *iface, REFIID iid, void **out );
++    ULONG (STDMETHODCALLTYPE *AddRef)( IWebAuthProviderOperation_compat *iface );
++    ULONG (STDMETHODCALLTYPE *Release)( IWebAuthProviderOperation_compat *iface );
++    HRESULT (STDMETHODCALLTYPE *GetIids)( IWebAuthProviderOperation_compat *iface, ULONG *iid_count, IID **iids );
++    HRESULT (STDMETHODCALLTYPE *GetRuntimeClassName)( IWebAuthProviderOperation_compat *iface, HSTRING *class_name );
++    HRESULT (STDMETHODCALLTYPE *GetTrustLevel)( IWebAuthProviderOperation_compat *iface, TrustLevel *trust_level );
++    HRESULT (STDMETHODCALLTYPE *get_Id)( IWebAuthProviderOperation_compat *iface, unsigned int *id );
++    HRESULT (STDMETHODCALLTYPE *get_Status)( IWebAuthProviderOperation_compat *iface, AsyncStatus *status );
++    HRESULT (STDMETHODCALLTYPE *get_ErrorCode)( IWebAuthProviderOperation_compat *iface, HRESULT *error_code );
++    HRESULT (STDMETHODCALLTYPE *Cancel)( IWebAuthProviderOperation_compat *iface );
++    HRESULT (STDMETHODCALLTYPE *Close)( IWebAuthProviderOperation_compat *iface );
++    HRESULT (STDMETHODCALLTYPE *put_Completed)( IWebAuthProviderOperation_compat *iface, void *handler );
++    HRESULT (STDMETHODCALLTYPE *get_Completed)( IWebAuthProviderOperation_compat *iface, void **handler );
++    HRESULT (STDMETHODCALLTYPE *GetResults)( IWebAuthProviderOperation_compat *iface, void **results );
++} IWebAuthProviderOperationVtbl_compat;
++
++struct IWebAuthProviderOperation_compat
++{
++    const IWebAuthProviderOperationVtbl_compat *lpVtbl;
++};
++
++struct web_authentication_core_manager
++{
++    IActivationFactory IActivationFactory_iface;
++    IWebAuthenticationCoreManagerStatics_compat IWebAuthenticationCoreManagerStatics_iface;
++    IWebAuthenticationCoreManagerStatics2_compat IWebAuthenticationCoreManagerStatics2_iface;
++    LONG ref;
++};
++
++struct web_auth_provider_operation
++{
++    IWebAuthProviderOperation_compat IWebAuthProviderOperation_iface;
++    LONG ref;
++    BOOL return_provider;
++};
++
++typedef struct IWebAccountProviderVtbl_compat
++{
++    HRESULT (STDMETHODCALLTYPE *QueryInterface)( IWebAccountProvider_compat *iface, REFIID iid, void **out );
++    ULONG (STDMETHODCALLTYPE *AddRef)( IWebAccountProvider_compat *iface );
++    ULONG (STDMETHODCALLTYPE *Release)( IWebAccountProvider_compat *iface );
++    HRESULT (STDMETHODCALLTYPE *GetIids)( IWebAccountProvider_compat *iface, ULONG *iid_count, IID **iids );
++    HRESULT (STDMETHODCALLTYPE *GetRuntimeClassName)( IWebAccountProvider_compat *iface, HSTRING *class_name );
++    HRESULT (STDMETHODCALLTYPE *GetTrustLevel)( IWebAccountProvider_compat *iface, TrustLevel *trust_level );
++    HRESULT (STDMETHODCALLTYPE *get_Id)( IWebAccountProvider_compat *iface, HSTRING *value );
++    HRESULT (STDMETHODCALLTYPE *get_DisplayName)( IWebAccountProvider_compat *iface, HSTRING *value );
++    HRESULT (STDMETHODCALLTYPE *get_IconUri)( IWebAccountProvider_compat *iface, void **value );
++} IWebAccountProviderVtbl_compat;
++
++struct IWebAccountProvider_compat
++{
++    const IWebAccountProviderVtbl_compat *lpVtbl;
++};
++
++struct web_account_provider
++{
++    IWebAccountProvider_compat IWebAccountProvider_iface;
++    LONG ref;
++};
++
++static inline struct web_authentication_core_manager *impl_from_IActivationFactory( IActivationFactory *iface )
++{
++    return CONTAINING_RECORD( iface, struct web_authentication_core_manager, IActivationFactory_iface );
++}
++
++static inline struct web_authentication_core_manager *impl_from_IStatics( IWebAuthenticationCoreManagerStatics_compat *iface )
++{
++    return CONTAINING_RECORD( iface, struct web_authentication_core_manager, IWebAuthenticationCoreManagerStatics_iface );
++}
++
++static inline struct web_authentication_core_manager *impl_from_IStatics2( IWebAuthenticationCoreManagerStatics2_compat *iface )
++{
++    return CONTAINING_RECORD( iface, struct web_authentication_core_manager, IWebAuthenticationCoreManagerStatics2_iface );
++}
++
++static HRESULT manager_query_interface( struct web_authentication_core_manager *impl, REFIID iid, void **out )
++{
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IActivationFactory ))
++    {
++        *out = &impl->IActivationFactory_iface;
++        IActivationFactory_AddRef( *out );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_IWebAuthenticationCoreManagerStatics_compat ))
++    {
++        *out = &impl->IWebAuthenticationCoreManagerStatics_iface;
++        IActivationFactory_AddRef( &impl->IActivationFactory_iface );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_IWebAuthenticationCoreManagerStatics2_compat ))
++    {
++        *out = &impl->IWebAuthenticationCoreManagerStatics2_iface;
++        IActivationFactory_AddRef( &impl->IActivationFactory_iface );
++        return S_OK;
++    }
++
++    FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
++    *out = NULL;
++    return E_NOINTERFACE;
++}
++
++static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID iid, void **out )
++{
++    return manager_query_interface( impl_from_IActivationFactory( iface ), iid, out );
++}
++
++static ULONG WINAPI factory_AddRef( IActivationFactory *iface )
++{
++    struct web_authentication_core_manager *impl = impl_from_IActivationFactory( iface );
++    return InterlockedIncrement( &impl->ref );
++}
++
++static ULONG WINAPI factory_Release( IActivationFactory *iface )
++{
++    struct web_authentication_core_manager *impl = impl_from_IActivationFactory( iface );
++    return InterlockedDecrement( &impl->ref );
++}
++
++static HRESULT WINAPI factory_GetIids( IActivationFactory *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    if (iid_count) *iid_count = 0;
++    if (iids) *iids = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI factory_GetRuntimeClassName( IActivationFactory *iface, HSTRING *class_name )
++{
++    static const WCHAR class_nameW[] = L"Windows.Security.Authentication.Web.Core.WebAuthenticationCoreManager";
++    return WindowsCreateString( class_nameW, wcslen( class_nameW ), class_name );
++}
++
++static HRESULT WINAPI factory_GetTrustLevel( IActivationFactory *iface, TrustLevel *trust_level )
++{
++    if (trust_level) *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI factory_ActivateInstance( IActivationFactory *iface, IInspectable **instance )
++{
++    FIXME( "iface %p, instance %p stub!\n", iface, instance );
++    if (instance) *instance = NULL;
++    return E_NOTIMPL;
++}
++
++static const struct IActivationFactoryVtbl factory_vtbl =
++{
++    factory_QueryInterface,
++    factory_AddRef,
++    factory_Release,
++    factory_GetIids,
++    factory_GetRuntimeClassName,
++    factory_GetTrustLevel,
++    factory_ActivateInstance,
++};
++
++#define DEFINE_STATICS_IINSPECTABLE(prefix, iface_type, impl_from) \
++static HRESULT WINAPI prefix##_QueryInterface( iface_type *iface, REFIID iid, void **out ) \
++{ \
++    return manager_query_interface( impl_from( iface ), iid, out ); \
++} \
++static ULONG WINAPI prefix##_AddRef( iface_type *iface ) \
++{ \
++    struct web_authentication_core_manager *impl = impl_from( iface ); \
++    return IActivationFactory_AddRef( &impl->IActivationFactory_iface ); \
++} \
++static ULONG WINAPI prefix##_Release( iface_type *iface ) \
++{ \
++    struct web_authentication_core_manager *impl = impl_from( iface ); \
++    return IActivationFactory_Release( &impl->IActivationFactory_iface ); \
++} \
++static HRESULT WINAPI prefix##_GetIids( iface_type *iface, ULONG *iid_count, IID **iids ) \
++{ \
++    FIXME( "iface %p, iid_count %p, iids %p stub!\\n", iface, iid_count, iids ); \
++    if (iid_count) *iid_count = 0; \
++    if (iids) *iids = NULL; \
++    return S_OK; \
++} \
++static HRESULT WINAPI prefix##_GetRuntimeClassName( iface_type *iface, HSTRING *class_name ) \
++{ \
++    return factory_GetRuntimeClassName( NULL, class_name ); \
++} \
++static HRESULT WINAPI prefix##_GetTrustLevel( iface_type *iface, TrustLevel *trust_level ) \
++{ \
++    return factory_GetTrustLevel( NULL, trust_level ); \
++}
++
++DEFINE_STATICS_IINSPECTABLE( statics, IWebAuthenticationCoreManagerStatics_compat, impl_from_IStatics );
++DEFINE_STATICS_IINSPECTABLE( statics2, IWebAuthenticationCoreManagerStatics2_compat, impl_from_IStatics2 );
++
++static inline struct web_account_provider *impl_from_IWebAccountProvider( IWebAccountProvider_compat *iface )
++{
++    return CONTAINING_RECORD( iface, struct web_account_provider, IWebAccountProvider_iface );
++}
++
++static HRESULT WINAPI web_account_provider_QueryInterface( IWebAccountProvider_compat *iface, REFIID iid, void **out )
++{
++    static const GUID IID_IWebAccountProvider_compat =
++        {0x29dcc8c3, 0x7ab9, 0x4a7c, {0xa3,0x36, 0xb9,0x42,0xf9,0xdb,0xf7,0xc7}};
++    struct web_account_provider *impl = impl_from_IWebAccountProvider( iface );
++
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid( iid ), out );
++
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IWebAccountProvider_compat ))
++    {
++        *out = &impl->IWebAccountProvider_iface;
++        InterlockedIncrement( &impl->ref );
++        return S_OK;
++    }
++
++    FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
++    *out = NULL;
++    return E_NOINTERFACE;
++}
++
++static ULONG WINAPI web_account_provider_AddRef( IWebAccountProvider_compat *iface )
++{
++    struct web_account_provider *impl = impl_from_IWebAccountProvider( iface );
++    return InterlockedIncrement( &impl->ref );
++}
++
++static ULONG WINAPI web_account_provider_Release( IWebAccountProvider_compat *iface )
++{
++    struct web_account_provider *impl = impl_from_IWebAccountProvider( iface );
++    return InterlockedDecrement( &impl->ref );
++}
++
++static HRESULT WINAPI web_account_provider_GetIids( IWebAccountProvider_compat *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    if (iid_count) *iid_count = 0;
++    if (iids) *iids = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI web_account_provider_GetRuntimeClassName( IWebAccountProvider_compat *iface, HSTRING *class_name )
++{
++    static const WCHAR class_nameW[] = L"Windows.Security.Credentials.WebAccountProvider";
++    return WindowsCreateString( class_nameW, wcslen( class_nameW ), class_name );
++}
++
++static HRESULT WINAPI web_account_provider_GetTrustLevel( IWebAccountProvider_compat *iface, TrustLevel *trust_level )
++{
++    if (trust_level) *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI web_account_provider_get_Id( IWebAccountProvider_compat *iface, HSTRING *value )
++{
++    static const WCHAR idW[] = L"https://login.microsoft.com";
++    TRACE( "iface %p, value %p.\n", iface, value );
++    return WindowsCreateString( idW, wcslen( idW ), value );
++}
++
++static HRESULT WINAPI web_account_provider_get_DisplayName( IWebAccountProvider_compat *iface, HSTRING *value )
++{
++    static const WCHAR nameW[] = L"Microsoft";
++    TRACE( "iface %p, value %p.\n", iface, value );
++    return WindowsCreateString( nameW, wcslen( nameW ), value );
++}
++
++static HRESULT WINAPI web_account_provider_get_IconUri( IWebAccountProvider_compat *iface, void **value )
++{
++    FIXME( "iface %p, value %p semi-stub.\n", iface, value );
++    if (value) *value = NULL;
++    return S_OK;
++}
++
++static const IWebAccountProviderVtbl_compat web_account_provider_vtbl =
++{
++    web_account_provider_QueryInterface,
++    web_account_provider_AddRef,
++    web_account_provider_Release,
++    web_account_provider_GetIids,
++    web_account_provider_GetRuntimeClassName,
++    web_account_provider_GetTrustLevel,
++    web_account_provider_get_Id,
++    web_account_provider_get_DisplayName,
++    web_account_provider_get_IconUri,
++};
++
++static struct web_account_provider login_microsoft_provider =
++{
++    { &web_account_provider_vtbl },
++    1,
++};
++
++static HRESULT completed_async( void **operation, BOOL return_provider )
++{
++    static struct web_auth_provider_operation completed_null_operation;
++    static struct web_auth_provider_operation completed_provider_operation;
++    struct web_auth_provider_operation *completed_operation;
++
++    completed_operation = return_provider ? &completed_provider_operation : &completed_null_operation;
++
++    if (operation)
++    {
++        if (!completed_operation->IWebAuthProviderOperation_iface.lpVtbl)
++        {
++            extern const IWebAuthProviderOperationVtbl_compat web_auth_provider_operation_vtbl;
++            completed_operation->IWebAuthProviderOperation_iface.lpVtbl = &web_auth_provider_operation_vtbl;
++            completed_operation->ref = 1;
++            completed_operation->return_provider = return_provider;
++        }
++        *operation = &completed_operation->IWebAuthProviderOperation_iface;
++        InterlockedIncrement( &completed_operation->ref );
++    }
++    return S_OK;
++}
++
++static HRESULT unavailable_async( void **operation )
++{
++    return completed_async( operation, FALSE );
++}
++
++static HRESULT provider_async( void **operation )
++{
++    return completed_async( operation, TRUE );
++}
++
++static inline struct web_auth_provider_operation *impl_from_IWebAuthProviderOperation( IWebAuthProviderOperation_compat *iface )
++{
++    return CONTAINING_RECORD( iface, struct web_auth_provider_operation, IWebAuthProviderOperation_iface );
++}
++
++static HRESULT WINAPI operation_QueryInterface( IWebAuthProviderOperation_compat *iface, REFIID iid, void **out )
++{
++    struct web_auth_provider_operation *impl = impl_from_IWebAuthProviderOperation( iface );
++
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid( iid ), out );
++
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IInspectable ) ||
++        IsEqualGUID( iid, &IID_IAgileObject ) ||
++        IsEqualGUID( iid, &IID_IAsyncInfo ))
++    {
++        *out = &impl->IWebAuthProviderOperation_iface;
++        InterlockedIncrement( &impl->ref );
++        return S_OK;
++    }
++
++    FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
++    *out = NULL;
++    return E_NOINTERFACE;
++}
++
++static ULONG WINAPI operation_AddRef( IWebAuthProviderOperation_compat *iface )
++{
++    struct web_auth_provider_operation *impl = impl_from_IWebAuthProviderOperation( iface );
++    return InterlockedIncrement( &impl->ref );
++}
++
++static ULONG WINAPI operation_Release( IWebAuthProviderOperation_compat *iface )
++{
++    struct web_auth_provider_operation *impl = impl_from_IWebAuthProviderOperation( iface );
++    return InterlockedDecrement( &impl->ref );
++}
++
++static HRESULT WINAPI operation_GetIids( IWebAuthProviderOperation_compat *iface, ULONG *iid_count, IID **iids )
++{
++    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
++    if (iid_count) *iid_count = 0;
++    if (iids) *iids = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI operation_GetRuntimeClassName( IWebAuthProviderOperation_compat *iface, HSTRING *class_name )
++{
++    return WindowsCreateString( L"Windows.Foundation.IAsyncOperation`1<Windows.Security.Credentials.WebAccountProvider>",
++                                wcslen( L"Windows.Foundation.IAsyncOperation`1<Windows.Security.Credentials.WebAccountProvider>" ),
++                                class_name );
++}
++
++static HRESULT WINAPI operation_GetTrustLevel( IWebAuthProviderOperation_compat *iface, TrustLevel *trust_level )
++{
++    if (trust_level) *trust_level = BaseTrust;
++    return S_OK;
++}
++
++static HRESULT WINAPI operation_get_Id( IWebAuthProviderOperation_compat *iface, unsigned int *id )
++{
++    if (id) *id = 1;
++    return S_OK;
++}
++
++static HRESULT WINAPI operation_get_Status( IWebAuthProviderOperation_compat *iface, AsyncStatus *status )
++{
++    if (status) *status = Completed;
++    return S_OK;
++}
++
++static HRESULT WINAPI operation_get_ErrorCode( IWebAuthProviderOperation_compat *iface, HRESULT *error_code )
++{
++    if (error_code) *error_code = S_OK;
++    return S_OK;
++}
++
++static HRESULT WINAPI operation_Cancel( IWebAuthProviderOperation_compat *iface )
++{
++    return S_OK;
++}
++
++static HRESULT WINAPI operation_Close( IWebAuthProviderOperation_compat *iface )
++{
++    return S_OK;
++}
++
++static HRESULT WINAPI operation_put_Completed( IWebAuthProviderOperation_compat *iface, void *handler )
++{
++    FIXME( "iface %p, handler %p semi-stub.\n", iface, handler );
++    return S_OK;
++}
++
++static HRESULT WINAPI operation_get_Completed( IWebAuthProviderOperation_compat *iface, void **handler )
++{
++    if (handler) *handler = NULL;
++    return S_OK;
++}
++
++static HRESULT WINAPI operation_GetResults( IWebAuthProviderOperation_compat *iface, void **results )
++{
++    struct web_auth_provider_operation *impl = impl_from_IWebAuthProviderOperation( iface );
++
++    TRACE( "iface %p, results %p.\n", iface, results );
++    if (results)
++    {
++        if (impl->return_provider)
++        {
++            *results = &login_microsoft_provider.IWebAccountProvider_iface;
++            InterlockedIncrement( &login_microsoft_provider.ref );
++        }
++        else
++        {
++            *results = NULL;
++        }
++    }
++    return S_OK;
++}
++
++const IWebAuthProviderOperationVtbl_compat web_auth_provider_operation_vtbl =
++{
++    operation_QueryInterface,
++    operation_AddRef,
++    operation_Release,
++    operation_GetIids,
++    operation_GetRuntimeClassName,
++    operation_GetTrustLevel,
++    operation_get_Id,
++    operation_get_Status,
++    operation_get_ErrorCode,
++    operation_Cancel,
++    operation_Close,
++    operation_put_Completed,
++    operation_get_Completed,
++    operation_GetResults,
++};
++
++static HRESULT WINAPI statics_GetTokenSilentlyAsync( IWebAuthenticationCoreManagerStatics_compat *iface, void *request, void **operation )
++{
++    FIXME( "iface %p, request %p, operation %p stub!\n", iface, request, operation );
++    return unavailable_async( operation );
++}
++
++static HRESULT WINAPI statics_GetTokenSilentlyWithWebAccountAsync( IWebAuthenticationCoreManagerStatics_compat *iface, void *request, void *web_account, void **operation )
++{
++    FIXME( "iface %p, request %p, web_account %p, operation %p stub!\n", iface, request, web_account, operation );
++    return unavailable_async( operation );
++}
++
++static HRESULT WINAPI statics_RequestTokenAsync( IWebAuthenticationCoreManagerStatics_compat *iface, void *request, void **operation )
++{
++    FIXME( "iface %p, request %p, operation %p stub!\n", iface, request, operation );
++    return unavailable_async( operation );
++}
++
++static HRESULT WINAPI statics_RequestTokenWithWebAccountAsync( IWebAuthenticationCoreManagerStatics_compat *iface, void *request, void *web_account, void **operation )
++{
++    FIXME( "iface %p, request %p, web_account %p, operation %p stub!\n", iface, request, web_account, operation );
++    return unavailable_async( operation );
++}
++
++static HRESULT WINAPI statics_FindAccountAsync( IWebAuthenticationCoreManagerStatics_compat *iface, void *provider, HSTRING web_account_id, void **operation )
++{
++    FIXME( "iface %p, provider %p, web_account_id %s, operation %p stub!\n", iface, provider, debugstr_hstring(web_account_id), operation );
++    return unavailable_async( operation );
++}
++
++static HRESULT WINAPI statics_FindAccountProviderAsync( IWebAuthenticationCoreManagerStatics_compat *iface, HSTRING web_account_provider_id, void **operation )
++{
++    FIXME( "iface %p, web_account_provider_id %s, operation %p stub!\n", iface, debugstr_hstring(web_account_provider_id), operation );
++    return provider_async( operation );
++}
++
++static HRESULT WINAPI statics_FindAccountProviderWithAuthorityAsync( IWebAuthenticationCoreManagerStatics_compat *iface, HSTRING web_account_provider_id, HSTRING authority, void **operation )
++{
++    FIXME( "iface %p, web_account_provider_id %s, authority %s, operation %p stub!\n", iface, debugstr_hstring(web_account_provider_id), debugstr_hstring(authority), operation );
++    return provider_async( operation );
++}
++
++static HRESULT WINAPI statics_FindAccountProviderWithAuthorityForUserAsync( IWebAuthenticationCoreManagerStatics_compat *iface, void *user, HSTRING web_account_provider_id, HSTRING authority, void **operation )
++{
++    FIXME( "iface %p, user %p, web_account_provider_id %s, authority %s, operation %p stub!\n", iface, user, debugstr_hstring(web_account_provider_id), debugstr_hstring(authority), operation );
++    return provider_async( operation );
++}
++
++static const IWebAuthenticationCoreManagerStaticsVtbl_compat statics_vtbl =
++{
++    statics_QueryInterface,
++    statics_AddRef,
++    statics_Release,
++    statics_GetIids,
++    statics_GetRuntimeClassName,
++    statics_GetTrustLevel,
++    statics_GetTokenSilentlyAsync,
++    statics_GetTokenSilentlyWithWebAccountAsync,
++    statics_RequestTokenAsync,
++    statics_RequestTokenWithWebAccountAsync,
++    statics_FindAccountAsync,
++    statics_FindAccountProviderAsync,
++    statics_FindAccountProviderWithAuthorityAsync,
++    statics_FindAccountProviderWithAuthorityForUserAsync,
++};
++
++static HRESULT WINAPI statics2_FindAllAccountsAsync( IWebAuthenticationCoreManagerStatics2_compat *iface, void *provider, void **operation )
++{
++    FIXME( "iface %p, provider %p, operation %p stub!\n", iface, provider, operation );
++    return unavailable_async( operation );
++}
++
++static HRESULT WINAPI statics2_FindSystemAccountProviderAsync( IWebAuthenticationCoreManagerStatics2_compat *iface, HSTRING web_account_provider_id, void **operation )
++{
++    FIXME( "iface %p, web_account_provider_id %s, operation %p stub!\n", iface, debugstr_hstring(web_account_provider_id), operation );
++    return provider_async( operation );
++}
++
++static HRESULT WINAPI statics2_FindSystemAccountProviderWithAuthorityAsync( IWebAuthenticationCoreManagerStatics2_compat *iface, HSTRING web_account_provider_id, HSTRING authority, void **operation )
++{
++    FIXME( "iface %p, web_account_provider_id %s, authority %s, operation %p stub!\n", iface, debugstr_hstring(web_account_provider_id), debugstr_hstring(authority), operation );
++    return provider_async( operation );
++}
++
++static HRESULT WINAPI statics2_FindSystemAccountProviderWithAuthorityForUserAsync( IWebAuthenticationCoreManagerStatics2_compat *iface, void *user, HSTRING web_account_provider_id, HSTRING authority, void **operation )
++{
++    FIXME( "iface %p, user %p, web_account_provider_id %s, authority %s, operation %p stub!\n", iface, user, debugstr_hstring(web_account_provider_id), debugstr_hstring(authority), operation );
++    return provider_async( operation );
++}
++
++static const IWebAuthenticationCoreManagerStatics2Vtbl_compat statics2_vtbl =
++{
++    statics2_QueryInterface,
++    statics2_AddRef,
++    statics2_Release,
++    statics2_GetIids,
++    statics2_GetRuntimeClassName,
++    statics2_GetTrustLevel,
++    statics2_FindAllAccountsAsync,
++    statics2_FindSystemAccountProviderAsync,
++    statics2_FindSystemAccountProviderWithAuthorityAsync,
++    statics2_FindSystemAccountProviderWithAuthorityForUserAsync,
++};
++
++static struct web_authentication_core_manager manager =
++{
++    { &factory_vtbl },
++    { &statics_vtbl },
++    { &statics2_vtbl },
++    1,
++};
++
++IActivationFactory *web_authentication_core_manager_factory = &manager.IActivationFactory_iface;

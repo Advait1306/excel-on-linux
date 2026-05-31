@@ -1,0 +1,11 @@
+337a35e4e541ec3972acf918d65990a8d84cd82907dd1c89a9b2552e1ea3cc0d  /home/mars-user/office-open-repro/valve-wine-ge10-install/bin/wine
+8af7f6c784cf88f24a1ce25ecee9f06c4eb9a6db39201753d08c38dcb478826f  /home/mars-user/office-open-repro/valve-wine-ge10-install/bin/wine64
+48655f2af4775ab6c17c4926c874d96c5c1d806879be15dc96792c922f8d3e15  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/i386-windows/d2d1.dll
+3348a8e469d13a682b3760bdf6ed87505dcf51d3ae0367dbe60a431d03487735  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/x86_64-windows/d2d1.dll
+d6a6e8d34844892ef1e9b74bd21eca0977b42543a5f445c02e2ba14c044773c2  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/i386-windows/sppc.dll
+82a9820b4d9ea1c6c4b446fea72365e28401384c05f1ad9711ac28fc2a7caa22  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/x86_64-windows/sppc.dll
+cd2df768786b5dd610a81b4465b2b5808c172ef927f521311241c73637751de7  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/i386-windows/coremessaging.dll
+0ac54fedae2f7c84222b9e59d5387e5ad9bda8d885f59b026e20ea8f39f138b8  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/x86_64-windows/coremessaging.dll
+e9e39dc214c48701709d1287373efd7c3404c4fe357a5ecfec05e1b882468470  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/i386-windows/windows.web.dll
+620e5787f832a9b723bffe5dd5b86c76ea3023f1942c3818da51487a6b3a1ebc  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/i386-windows/windows.security.authentication.onlineid.dll
+0c1f4bb0770cb242e26f9ef8b3002ffdb7513778b8efa4d26e212dc50d92882f  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/x86_64-windows/windows.security.authentication.onlineid.dll

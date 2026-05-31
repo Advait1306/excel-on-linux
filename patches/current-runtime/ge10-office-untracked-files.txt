@@ -1,0 +1,16 @@
+configure
+dlls/ntdll/ntsyscalls.h
+dlls/twinapi.appcore/retail_info.c
+dlls/vulkan-1/vulkan-1.spec
+dlls/win32u/win32syscalls.h
+dlls/windows.applicationmodel/core_application.c
+dlls/windows.security.authentication.onlineid/protection_policy_manager.c
+dlls/windows.security.authentication.onlineid/web_authentication_core_manager.c
+dlls/winevulkan/loader_thunks.c
+dlls/winevulkan/loader_thunks.h
+dlls/winevulkan/vulkan_thunks.c
+dlls/winevulkan/vulkan_thunks.h
+dlls/winevulkan/winevulkan.json
+dlls/winevulkan/winevulkan.spec
+include/config.h.in
+include/wine/vulkan.h
