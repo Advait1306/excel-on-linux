@@ -1,0 +1,40 @@
+diff --git a/dlls/winhttp/session.c b/dlls/winhttp/session.c
+index a238b552c3..fd6f35d278 100644
+--- a/dlls/winhttp/session.c
++++ b/dlls/winhttp/session.c
+@@ -230,6 +230,10 @@ static BOOL session_set_option( struct object_header *hdr, DWORD option, void *b
+         session->receive_response_timeout = *(DWORD *)buffer;
+         return TRUE;
+ 
++    case WINHTTP_OPTION_IPV6_FAST_FALLBACK:
++        TRACE( "WINHTTP_OPTION_IPV6_FAST_FALLBACK ignored.\n" );
++        return TRUE;
++
+     case WINHTTP_OPTION_CONFIGURE_PASSPORT_AUTH:
+         session->passport_flags = *(DWORD *)buffer;
+         return TRUE;
+@@ -921,6 +925,13 @@ static BOOL request_query_option( struct object_header *hdr, DWORD option, void
+         *buflen = sizeof(DWORD);
+         return TRUE;
+ 
++    case WINHTTP_OPTION_AUTOLOGON_POLICY:
++        if (!validate_buffer( buffer, buflen, sizeof(DWORD) )) return FALSE;
++
++        *(DWORD *)buffer = hdr->logon_policy;
++        *buflen = sizeof(DWORD);
++        return TRUE;
++
+     case WINHTTP_OPTION_HTTP_PROTOCOL_USED:
+         if (!validate_buffer( buffer, buflen, sizeof(DWORD) )) return FALSE;
+ 
+@@ -1075,6 +1086,10 @@ static BOOL request_set_option( struct object_header *hdr, DWORD option, void *b
+         request->receive_response_timeout = *(DWORD *)buffer;
+         return TRUE;
+ 
++    case WINHTTP_OPTION_IPV6_FAST_FALLBACK:
++        TRACE( "WINHTTP_OPTION_IPV6_FAST_FALLBACK ignored.\n" );
++        return TRUE;
++
+     case WINHTTP_OPTION_USERNAME:
+     {
+         struct connect *connect = request->connect;
