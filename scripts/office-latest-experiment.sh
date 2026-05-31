@@ -13,6 +13,8 @@ OFFICE_XML="${OFFICE_XML:-$REPO_ROOT/config/office-latest-excelonly-current.xml}
 OVERRIDES_REG="${OVERRIDES_REG:-$REPO_ROOT/scripts/overrides/cx235-office-overrides.reg}"
 LOG_DIR="${LOG_DIR:-/home/mars-user/office-open-repro/logs-latest-officesetup-win10}"
 WINSCARD_STUB="${WINSCARD_STUB:-/home/mars-user/office-open-repro/WinSCard.dll}"
+EXCEL_EXE="${EXCEL_EXE:-C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\EXCEL.EXE}"
+VIRTUAL_DESKTOP="${VIRTUAL_DESKTOP:-office-latest,1200x900}"
 
 wine_env() {
   unset CX_ROOT CX_BOTTLE CX_BOTTLE_PATH CX_MANAGED_BOTTLE_PATH WINEDLLPATH
@@ -53,8 +55,11 @@ Usage:
   office-latest-experiment.sh install-winscard-stub
   office-latest-experiment.sh run-officesetup
   office-latest-experiment.sh run-latest-odt
+  office-latest-experiment.sh clear-excel-resiliency
   office-latest-experiment.sh launch-excel
   office-latest-experiment.sh launch-excel-log
+  office-latest-experiment.sh launch-excel-x11
+  office-latest-experiment.sh launch-excel-x11-log
   office-latest-experiment.sh tasklist
   office-latest-experiment.sh kill
 
@@ -114,13 +119,36 @@ EOF
     run_wine "$ODT_SETUP" /configure "$xml_win" >"$LOG_DIR/latest-odt-configure.log" 2>&1
     ;;
   launch-excel)
-    run_wine "C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
+    run_wine "$EXCEL_EXE"
     ;;
   launch-excel-log)
     ensure_log_dir
     echo "Launching Excel"
     echo "Log: $LOG_DIR/excel-launch.log"
-    run_wine "C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\EXCEL.EXE" >"$LOG_DIR/excel-launch.log" 2>&1
+    run_wine "$EXCEL_EXE" >"$LOG_DIR/excel-launch.log" 2>&1
+    ;;
+  clear-excel-resiliency)
+    echo "Clearing Excel crash/Safe Mode resiliency markers"
+    run_wine reg delete 'HKCU\Software\Microsoft\Office\16.0\Excel\Resiliency' /f || true
+    run_wine reg delete 'HKCU\Software\Microsoft\Office\16.0\Excel' /v ExcelPreviousSessionId /f || true
+    run_wine reg delete 'HKCU\Software\Microsoft\Office\16.0\Excel' /v ExcelPreviousSessionVersion /f || true
+    run_wineserver -w || true
+    ;;
+  launch-excel-x11)
+    wine_env
+    unset WAYLAND_DISPLAY
+    export OFFICE_SPP_NATIVE_POLICY_ERRORS="${OFFICE_SPP_NATIVE_POLICY_ERRORS:-1}"
+    WINEPREFIX="$PREFIX" "$WINEBIN" explorer "/desktop=$VIRTUAL_DESKTOP" "$EXCEL_EXE"
+    ;;
+  launch-excel-x11-log)
+    ensure_log_dir
+    wine_env
+    unset WAYLAND_DISPLAY
+    export OFFICE_SPP_NATIVE_POLICY_ERRORS="${OFFICE_SPP_NATIVE_POLICY_ERRORS:-1}"
+    export WINEDEBUG="${WINEDEBUG:-+dwmapi,+d2d,+messaging,+onlineid,fixme+combase,fixme+wintypes,err+ole,+loaddll}"
+    echo "Launching Excel in X11 Wine desktop: $VIRTUAL_DESKTOP"
+    echo "Log: $LOG_DIR/excel-x11-launch.log"
+    WINEPREFIX="$PREFIX" "$WINEBIN" explorer "/desktop=$VIRTUAL_DESKTOP" "$EXCEL_EXE" >"$LOG_DIR/excel-x11-launch.log" 2>&1
     ;;
   tasklist)
     run_wine tasklist
