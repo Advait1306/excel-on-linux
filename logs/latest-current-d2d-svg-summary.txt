@@ -35,3 +35,23 @@ Evidence:
 Next target:
 - Investigate D2D SVG attribute/value semantics for root SVG attributes.
 - The current stub returns generic ID2D1SvgAttribute objects but likely needs real typed values for viewBox/width/height/preserveAspectRatio or a more accurate HRESULT/null behavior.
+
+2026-05-31 01:59 UTC update:
+- Found a vtable bug in the SVG element shim: ID2D1SvgElement::CreateChild was missing after RemoveChild, so later SVG calls were shifted.
+- Added CreateChild and typed POD defaults for root attributes:
+  - D2D1_SVG_ATTRIBUTE_POD_TYPE_FLOAT -> 0.0
+  - D2D1_SVG_ATTRIBUTE_POD_TYPE_PRESERVE_ASPECT_RATIO -> defer=false, X_MID_Y_MID, MEET
+  - D2D1_SVG_ATTRIBUTE_POD_TYPE_VIEWBOX -> 0,0,viewport width,height
+  - D2D1_SVG_ATTRIBUTE_POD_TYPE_LENGTH -> viewport width/height with NUMBER units
+- Rebuilt/copied patched 32-bit d2d1.dll into /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/i386-windows/d2d1.dll.
+- Reran latest Excel in the disposable X11 Wine desktop after deleting ExcelPreviousSessionId and ExcelPreviousSessionVersion crash markers.
+- Safe Mode handling: when event 700159 appeared with Yes focused, the prompt was answered by sending Tab then Return, intentionally selecting No. Do not use plain Return on that dialog.
+- Result: the old React Native / D2D SVG null crash did not recur. Logs show repeated CreateSvgDocument, SetAttributeValueString, SetAttributeValuePod, CreateChild, and DrawSvgDocument calls.
+- X11 window inventory after the No selection showed both "Excel (Non-Commercial Use) (Unlicensed Product)" and "Sign in to set up Office".
+- The screenshot captured at that moment shows a blank "Feedback to Microsoft" window over the Excel surface, so the screenshot is evidence of forward progress after No, not proof of a fully usable sign-in UI.
+- Office also logged an Apps for Office feature event with 0x80004002; it is noted but not the current startup crash blocker.
+
+Evidence:
+- No-selected post-SVG screenshot: public/latest-current-excel-x11-svgpod-after-no.png
+- Window inventory outside repo: /home/mars-user/office-open-repro/logs-latest-authprobe/xwininfo-svgpod-live-after-no.txt
+- Detailed run log outside repo: /home/mars-user/office-open-repro/logs-latest-authprobe/excel-x11-svgdocument-pod-live.log

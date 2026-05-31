@@ -1,8 +1,8 @@
 diff --git a/dlls/d2d1/device.c b/dlls/d2d1/device.c
-index f613cee47c..82e80dde7e 100644
+index f613cee47c..dfb5315bb6 100644
 --- a/dlls/d2d1/device.c
 +++ b/dlls/d2d1/device.c
-@@ -2885,13 +2885,819 @@ static HRESULT STDMETHODCALLTYPE d2d_device_context_GetSvgGlyphImage(ID2D1Device
+@@ -2885,13 +2885,882 @@ static HRESULT STDMETHODCALLTYPE d2d_device_context_GetSvgGlyphImage(ID2D1Device
      return E_NOTIMPL;
  }
  
@@ -82,6 +82,7 @@ index f613cee47c..82e80dde7e 100644
 +    HRESULT (STDMETHODCALLTYPE *AppendChild)(void *iface, void *new_child);
 +    HRESULT (STDMETHODCALLTYPE *ReplaceChild)(void *iface, void *new_child, void *old_child);
 +    HRESULT (STDMETHODCALLTYPE *RemoveChild)(void *iface, void *old_child);
++    HRESULT (STDMETHODCALLTYPE *CreateChild)(void *iface, const WCHAR *tag_name, void **new_child);
 +    BOOL (STDMETHODCALLTYPE *IsAttributeSpecified)(void *iface, const WCHAR *name, BOOL *inherited);
 +    UINT32 (STDMETHODCALLTYPE *GetSpecifiedAttributeCount)(void *iface);
 +    HRESULT (STDMETHODCALLTYPE *GetSpecifiedAttributeName)(void *iface, UINT32 index, WCHAR *name,
@@ -492,6 +493,25 @@ index f613cee47c..82e80dde7e 100644
 +    return S_OK;
 +}
 +
++static HRESULT STDMETHODCALLTYPE d2d_svg_element_CreateChild(void *iface, const WCHAR *tag_name, void **new_child)
++{
++    struct d2d_svg_element *element = impl_from_ID2D1SvgElement(iface);
++    struct d2d_svg_element *child;
++    HRESULT hr;
++
++    FIXME("iface %p, tag_name %s, new_child %p semi-stub.\n", iface, debugstr_w(tag_name), new_child);
++
++    if (!new_child)
++        return E_INVALIDARG;
++    *new_child = NULL;
++
++    if (FAILED(hr = d2d_svg_element_create(element->document, tag_name ? tag_name : L"", &child)))
++        return hr;
++
++    *new_child = &child->iface;
++    return S_OK;
++}
++
 +static BOOL STDMETHODCALLTYPE d2d_svg_element_IsAttributeSpecified(void *iface, const WCHAR *name, BOOL *inherited)
 +{
 +    FIXME("iface %p, name %s, inherited %p stub.\n", iface, debugstr_w(name), inherited);
@@ -598,11 +618,53 @@ index f613cee47c..82e80dde7e 100644
 +static HRESULT STDMETHODCALLTYPE d2d_svg_element_GetAttributeValuePod(void *iface, const WCHAR *name, UINT32 type,
 +        void *value, UINT32 value_size)
 +{
-+    FIXME("iface %p, name %s, type %#x, value %p, value_size %u stub.\n", iface, debugstr_w(name), type, value,
++    struct d2d_svg_element *element = impl_from_ID2D1SvgElement(iface);
++
++    FIXME("iface %p, name %s, type %#x, value %p, value_size %u semi-stub.\n", iface, debugstr_w(name), type, value,
 +            value_size);
++
++    if (!value && value_size)
++        return E_INVALIDARG;
++
 +    if (value)
 +        memset(value, 0, value_size);
-+    return D2DERR_INVALID_CALL;
++
++    switch (type)
++    {
++        case 0: /* D2D1_SVG_ATTRIBUTE_POD_TYPE_FLOAT */
++            if (value_size < sizeof(float))
++                return D2DERR_INSUFFICIENT_BUFFER;
++            *(float *)value = 0.0f;
++            return S_OK;
++
++        case 11: /* D2D1_SVG_ATTRIBUTE_POD_TYPE_PRESERVE_ASPECT_RATIO */
++            if (value_size < 12)
++                return D2DERR_INSUFFICIENT_BUFFER;
++            ((UINT32 *)value)[0] = FALSE;
++            ((UINT32 *)value)[1] = 5; /* D2D1_SVG_ASPECT_ALIGN_X_MID_Y_MID */
++            ((UINT32 *)value)[2] = 0; /* D2D1_SVG_ASPECT_SCALING_MEET */
++            return S_OK;
++
++        case 12: /* D2D1_SVG_ATTRIBUTE_POD_TYPE_VIEWBOX */
++            if (value_size < 4 * sizeof(float))
++                return D2DERR_INSUFFICIENT_BUFFER;
++            ((float *)value)[0] = 0.0f;
++            ((float *)value)[1] = 0.0f;
++            ((float *)value)[2] = element->document->viewport_size.width;
++            ((float *)value)[3] = element->document->viewport_size.height;
++            return S_OK;
++
++        case 13: /* D2D1_SVG_ATTRIBUTE_POD_TYPE_LENGTH */
++            if (value_size < sizeof(float) + sizeof(UINT32))
++                return D2DERR_INSUFFICIENT_BUFFER;
++            ((float *)value)[0] = !lstrcmpW(name, L"height") ? element->document->viewport_size.height
++                    : element->document->viewport_size.width;
++            ((UINT32 *)value)[1] = 0; /* D2D1_SVG_LENGTH_UNITS_NUMBER */
++            return S_OK;
++
++        default:
++            return D2DERR_INVALID_CALL;
++    }
 +}
 +
 +static HRESULT STDMETHODCALLTYPE d2d_svg_element_GetAttributeValueString(void *iface, const WCHAR *name, UINT32 type,
@@ -644,6 +706,7 @@ index f613cee47c..82e80dde7e 100644
 +    d2d_svg_element_AppendChild,
 +    d2d_svg_element_ReplaceChild,
 +    d2d_svg_element_RemoveChild,
++    d2d_svg_element_CreateChild,
 +    d2d_svg_element_IsAttributeSpecified,
 +    d2d_svg_element_GetSpecifiedAttributeCount,
 +    d2d_svg_element_GetSpecifiedAttributeName,
