@@ -1,0 +1,18 @@
+712:0218:err:ole:marshal_object Failed to create an IRpcStubBuffer from IPSFactory for {6d5140c1-7436-11ce-8034-00aa006009fa} with error 0x80004002
+715:0218:err:ole:marshal_object Failed to create an IRpcStubBuffer from IPSFactory for {e89f726e-c4f4-4c19-bb19-b647d7fa8478} with error 0x80004002
+725:0218:err:ole:marshal_object Failed to create an IRpcStubBuffer from IPSFactory for {6d5140c1-7436-11ce-8034-00aa006009fa} with error 0x80004002
+743:007c:fixme:onlineid:ticket_request_factory_statics_CreateOnlineIdServiceTicketRequest iface 00006FFFF84570F8, service L"https://events.data.microsoft.com/OneCollector/1.0/", policy L"NFS_1wk_compact_SSL", request 000000000185EEF8 semi-stub.
+745:007c:fixme:onlineid:authenticator_GetTicketAsync iface 00000000014C4980, request 00000000014DCD00, operation 000000000185EF10 semi-stub returning service connection error.
+755:0218:err:ole:marshal_object Failed to create an IRpcStubBuffer from IPSFactory for {e89f726e-c4f4-4c19-bb19-b647d7fa8478} with error 0x80004002
+757:0218:err:ole:marshal_object Failed to create an IRpcStubBuffer from IPSFactory for {6d5140c1-7436-11ce-8034-00aa006009fa} with error 0x80004002
+760:0218:err:ole:marshal_object Failed to create an IRpcStubBuffer from IPSFactory for {e89f726e-c4f4-4c19-bb19-b647d7fa8478} with error 0x80004002
+774:0218:err:ole:marshal_object Failed to create an IRpcStubBuffer from IPSFactory for {6d5140c1-7436-11ce-8034-00aa006009fa} with error 0x80004002
+775:0218:err:ole:marshal_object Failed to create an IRpcStubBuffer from IPSFactory for {6d5140c1-7436-11ce-8034-00aa006009fa} with error 0x80004002
+1242:01e4:fixme:onlineid:ticket_request_factory_statics_CreateOnlineIdServiceTicketRequestAdvanced iface 6E438074, service L"service::https://licensing.m365.svc.cloud.microsoft/::MBI_SSL_SHORT", request 0F4BDCD4 semi-stub.
+1244:01e4:fixme:onlineid:authenticator_GetTicketAsync iface 1517EAE0, request 1517EB00, operation 0F4BDCCC semi-stub returning service connection error.
+1271:01e4:fixme:onlineid:ticket_request_factory_statics_CreateOnlineIdServiceTicketRequestAdvanced iface 6E438074, service L"service::https://licensing.m365.svc.cloud.microsoft/::MBI_SSL_SHORT", request 0F4BDCD4 semi-stub.
+1273:01e4:fixme:onlineid:authenticator_GetTicketAsync iface 1504EA88, request 1504EAA8, operation 0F4BDCCC semi-stub returning service connection error.
+1847:01dc:fixme:onlineid:ticket_request_factory_statics_CreateOnlineIdServiceTicketRequest iface 6E438074, service L"https://events.data.microsoft.com/OneCollector/1.0/", policy L"NFS_1wk_compact_SSL", request 0EEBF6C4 semi-stub.
+1849:01dc:fixme:onlineid:authenticator_GetTicketAsync iface 14EF10D0, request 14EF10F0, operation 0EEBF6C0 semi-stub returning service connection error.
+1898:0080:fixme:onlineid:ticket_request_factory_statics_CreateOnlineIdServiceTicketRequest iface 00006FFFF84570F8, service L"https://events.data.microsoft.com/OneCollector/1.0/", policy L"NFS_1wk_compact_SSL", request 000000000195F958 semi-stub.
+1900:0080:fixme:onlineid:authenticator_GetTicketAsync iface 0000000001496F10, request 0000000001496F40, operation 000000000195F970 semi-stub returning service connection error.
