@@ -1,8 +1,8 @@
 diff --git a/dlls/d2d1/device.c b/dlls/d2d1/device.c
-index f613cee47c5..d7d44649ce4 100644
+index f613cee47c5..6c763eab97f 100644
 --- a/dlls/d2d1/device.c
 +++ b/dlls/d2d1/device.c
-@@ -2885,19 +2885,1341 @@ static HRESULT STDMETHODCALLTYPE d2d_device_context_GetSvgGlyphImage(ID2D1Device
+@@ -2885,19 +2885,1343 @@ static HRESULT STDMETHODCALLTYPE d2d_device_context_GetSvgGlyphImage(ID2D1Device
      return E_NOTIMPL;
  }
  
@@ -707,6 +707,8 @@ index f613cee47c5..d7d44649ce4 100644
 +    {
 +        element->fill = *(const D2D1_COLOR_F *)value;
 +        element->has_fill = TRUE;
++        TRACE("SVG fill for %s is {%.8e, %.8e, %.8e, %.8e}.\n", debugstr_w(element->tag_name),
++                element->fill.r, element->fill.g, element->fill.b, element->fill.a);
 +    }
 +    else if (!lstrcmpW(name, L"fill-opacity") && type == 0 && value_size >= sizeof(float))
 +    {
@@ -1348,3 +1350,57 @@ index f613cee47c5..d7d44649ce4 100644
  }
  
  static HRESULT STDMETHODCALLTYPE d2d_device_context_CreateColorContextFromDxgiColorSpace(
+diff --git a/dlls/d2d1/wic_render_target.c b/dlls/d2d1/wic_render_target.c
+index ccbe194d291..838980e1af3 100644
+--- a/dlls/d2d1/wic_render_target.c
++++ b/dlls/d2d1/wic_render_target.c
+@@ -39,6 +39,11 @@ static HRESULT d2d_wic_render_target_present(IUnknown *outer_unknown)
+     BYTE *src, *dst;
+     unsigned int i;
+     HRESULT hr;
++    unsigned int nonzero_pixels = 0;
++    unsigned int alpha_pixels = 0;
++    unsigned int sample_pixels = 0;
++    unsigned int min_x = ~0u, min_y = ~0u, max_x = 0, max_y = 0;
++    unsigned int checksum = 0;
+ 
+     if (FAILED(hr = IDXGISurface_QueryInterface(render_target->dxgi_surface,
+             &IID_ID3D10Resource, (void **)&src_resource)))
+@@ -87,11 +92,37 @@ static HRESULT d2d_wic_render_target_present(IUnknown *outer_unknown)
+ 
+     for (i = 0; i < render_target->height; ++i)
+     {
++        unsigned int j;
++
++        for (j = 0; j < render_target->width; ++j)
++        {
++            const BYTE *pixel = src + j * render_target->bpp;
++
++            checksum = checksum * 33 + pixel[0];
++            checksum = checksum * 33 + pixel[1];
++            checksum = checksum * 33 + pixel[2];
++            checksum = checksum * 33 + pixel[3];
++            if (pixel[0] || pixel[1] || pixel[2] || pixel[3])
++            {
++                ++nonzero_pixels;
++                if (j < min_x) min_x = j;
++                if (i < min_y) min_y = i;
++                if (j > max_x) max_x = j;
++                if (i > max_y) max_y = i;
++            }
++            if (pixel[3])
++                ++alpha_pixels;
++            ++sample_pixels;
++        }
+         memcpy(dst, src, render_target->bpp * render_target->width);
+         src += mapped_texture.RowPitch;
+         dst += dst_pitch;
+     }
+ 
++    TRACE("WIC present %ux%u bpp %u, pixels %u, nonzero %u, alpha %u, bounds (%u,%u)-(%u,%u), checksum %#x.\n",
++            render_target->width, render_target->height, render_target->bpp, sample_pixels, nonzero_pixels,
++            alpha_pixels, min_x, min_y, max_x, max_y, checksum);
++
+     ID3D10Texture2D_Unmap(render_target->readback_texture, 0);
+     IWICBitmapLock_Release(bitmap_lock);
+ 
