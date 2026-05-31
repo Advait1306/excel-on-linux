@@ -1,0 +1,37 @@
+2026-05-31 01:35 UTC
+
+Runtime/prefix:
+- Patched GE-Proton10-34 Wine runtime: /home/mars-user/office-open-repro/valve-wine-ge10-install
+- Disposable latest prefix: /home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx
+- Office/Excel: 32-bit latest/current, 16.0.20026.20112, WOW64 prefix, Windows 10.
+
+Command shape:
+- Cleared disposable Excel crash markers before clean runs:
+  wine reg delete 'HKCU\Software\Microsoft\Office\16.0\Excel' /v ExcelPreviousSessionId /f
+  wine reg delete 'HKCU\Software\Microsoft\Office\16.0\Excel' /v ExcelPreviousSessionVersion /f
+- Launched isolated X11 virtual desktop:
+  env -u WAYLAND_DISPLAY OFFICE_SPP_NATIVE_POLICY_ERRORS=1 DISPLAY=:0 wine explorer /desktop=authprobe-x11-svgattr,1200x900 'C:\Program Files (x86)\Microsoft Office\root\Office16\EXCEL.EXE' /x
+
+Findings:
+- Earlier blank privacy dialog is a React Native Win32 / D2D SVG path, not SPP repair.
+- Isolated X11 run loads react-native-sdk.dll, react-native-win32.dll, and v8jsi.dll.
+- First hard blocker was d2d1!CreateSvgDocument returning E_NOTIMPL.
+- Minimal CreateSvgDocument object moved the crash to missing ID2D1Resource/GetFactory vtable slots.
+- Fuller ID2D1SvgDocument vtable moved crash to GetRoot returning null.
+- Minimal ID2D1SvgElement root moved React Native into SVG attribute reads:
+  - viewBox
+  - width
+  - height
+  - preserveAspectRatio
+- Minimal ID2D1SvgAttribute object did not clear the next null deref; latest crash remains:
+  page fault on read access to 0x00000000 at mso40uiwin32client+0x74ca2d, with react-native-win32 frames below.
+
+Evidence:
+- Patch snapshot: patches/latest-current-d2d-svg-document-stubs.patch
+- Clean root evidence screenshot: public/latest-current-excel-x11-svgroot-clean.png
+- Attribute-shim crash screenshot: public/latest-current-excel-x11-svgattr-crash.png
+- Detailed log outside repo: /home/mars-user/office-open-repro/logs-latest-authprobe/excel-x11-svgdocument-attr-shim.log
+
+Next target:
+- Investigate D2D SVG attribute/value semantics for root SVG attributes.
+- The current stub returns generic ID2D1SvgAttribute objects but likely needs real typed values for viewBox/width/height/preserveAspectRatio or a more accurate HRESULT/null behavior.
