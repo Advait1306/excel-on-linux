@@ -23,6 +23,14 @@ Use the repo driver with the authprobe prefix and current evidence log dir:
 ```bash
 PREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx \
 LOG_DIR=/home/mars-user/office-open-repro/logs-latest-authprobe \
+scripts/office-latest-experiment.sh prepare-current-launch
+
+PREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx \
+LOG_DIR=/home/mars-user/office-open-repro/logs-latest-authprobe \
+scripts/office-latest-experiment.sh current-launch-status
+
+PREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx \
+LOG_DIR=/home/mars-user/office-open-repro/logs-latest-authprobe \
 VIRTUAL_DESKTOP=authprobe-x11-visible,1200x900 \
 scripts/office-latest-experiment.sh clear-excel-resiliency
 
@@ -35,6 +43,29 @@ scripts/office-latest-experiment.sh launch-excel-x11-log
 `OFFICE_SPP_NATIVE_POLICY_ERRORS=1` is set by `launch-excel-x11-log` unless
 overridden. This preserves the builtin `sppc` behavior that currently avoids
 Office repair event `702061`.
+
+## Prefix materialization contract
+
+`prepare-current-launch` encodes the manual prefix state needed by the latest
+sign-in path:
+
+- copy patched 32-bit Wine `coremessaging.dll` to
+  `C:\windows\syswow64\CoreMessagingXP.dll`
+- copy Office's
+  `Office16\WinAppSDK\Microsoft.Internal.FrameworkUdk.dll` to
+  `C:\windows\syswow64\Microsoft.Internal.FrameworkUdk.dll`
+- register these WinRT activatable classes:
+  - `Microsoft.UI.Dispatching.DispatcherQueue` -> `coremessaging.dll`
+  - `Windows.System.DispatcherQueue` -> `coremessaging.dll` in the 32-bit view
+  - `Windows.System.Profile.SharedModeSettings` ->
+    `windows.system.profile.systemmanufacturers.dll`
+
+`current-launch-status` prints the DLL hashes and `DllPath` registry values.
+The latest captured status output is:
+
+```text
+logs/latest-current-prefix-contract/current-launch-status.txt
+```
 
 ## Safe Mode rule
 

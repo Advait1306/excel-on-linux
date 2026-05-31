@@ -15,6 +15,9 @@ LOG_DIR="${LOG_DIR:-/home/mars-user/office-open-repro/logs-latest-officesetup-wi
 WINSCARD_STUB="${WINSCARD_STUB:-/home/mars-user/office-open-repro/WinSCard.dll}"
 EXCEL_EXE="${EXCEL_EXE:-C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\EXCEL.EXE}"
 VIRTUAL_DESKTOP="${VIRTUAL_DESKTOP:-office-latest,1200x900}"
+OFFICE16_UNIX="${OFFICE16_UNIX:-$PREFIX/drive_c/Program Files (x86)/Microsoft Office/root/Office16}"
+COREMESSAGING_ALIAS="${COREMESSAGING_ALIAS:-$PREFIX/drive_c/windows/syswow64/CoreMessagingXP.dll}"
+FRAMEWORKUDK_TARGET="${FRAMEWORKUDK_TARGET:-$PREFIX/drive_c/windows/syswow64/Microsoft.Internal.FrameworkUdk.dll}"
 
 wine_env() {
   unset CX_ROOT CX_BOTTLE CX_BOTTLE_PATH CX_MANAGED_BOTTLE_PATH WINEDLLPATH
@@ -55,6 +58,8 @@ Usage:
   office-latest-experiment.sh install-winscard-stub
   office-latest-experiment.sh run-officesetup
   office-latest-experiment.sh run-latest-odt
+  office-latest-experiment.sh prepare-current-launch
+  office-latest-experiment.sh current-launch-status
   office-latest-experiment.sh clear-excel-resiliency
   office-latest-experiment.sh launch-excel
   office-latest-experiment.sh launch-excel-log
@@ -117,6 +122,48 @@ EOF
     echo "Running latest/current ODT setup with $OFFICE_XML"
     echo "Log: $LOG_DIR/latest-odt-configure.log"
     run_wine "$ODT_SETUP" /configure "$xml_win" >"$LOG_DIR/latest-odt-configure.log" 2>&1
+    ;;
+  prepare-current-launch)
+    echo "Preparing latest/current Excel prefix launch materialization"
+    if [[ ! -f "$RUNTIME_ROOT/lib/wine/i386-windows/coremessaging.dll" ]]; then
+      echo "missing runtime coremessaging.dll" >&2
+      exit 1
+    fi
+    if [[ ! -f "$OFFICE16_UNIX/WinAppSDK/Microsoft.Internal.FrameworkUdk.dll" ]]; then
+      echo "missing Office WinAppSDK FrameworkUdk DLL: $OFFICE16_UNIX/WinAppSDK/Microsoft.Internal.FrameworkUdk.dll" >&2
+      exit 1
+    fi
+
+    install -m 644 "$RUNTIME_ROOT/lib/wine/i386-windows/coremessaging.dll" "$COREMESSAGING_ALIAS"
+    install -m 644 "$OFFICE16_UNIX/WinAppSDK/Microsoft.Internal.FrameworkUdk.dll" "$FRAMEWORKUDK_TARGET"
+
+    run_wine reg add 'HKLM\Software\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.UI.Dispatching.DispatcherQueue' /v DllPath /t REG_SZ /d 'C:\windows\system32\coremessaging.dll' /f
+    run_wine reg add 'HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.UI.Dispatching.DispatcherQueue' /v DllPath /t REG_SZ /d 'C:\windows\system32\coremessaging.dll' /f
+    run_wine reg add 'HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.DispatcherQueue' /v DllPath /t REG_SZ /d 'C:\windows\system32\coremessaging.dll' /f
+    run_wine reg add 'HKLM\Software\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.Profile.SharedModeSettings' /v DllPath /t REG_SZ /d 'C:\windows\system32\windows.system.profile.systemmanufacturers.dll' /f
+    run_wine reg add 'HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.Profile.SharedModeSettings' /v DllPath /t REG_SZ /d 'C:\windows\system32\windows.system.profile.systemmanufacturers.dll' /f
+    run_wineserver -w || true
+    ;;
+  current-launch-status)
+    echo "Prefix: $PREFIX"
+    echo "Office16: $OFFICE16_UNIX"
+    echo
+    if [[ -f "$COREMESSAGING_ALIAS" ]]; then
+      sha256sum "$COREMESSAGING_ALIAS" "$RUNTIME_ROOT/lib/wine/i386-windows/coremessaging.dll"
+    else
+      echo "missing: $COREMESSAGING_ALIAS"
+    fi
+    if [[ -f "$FRAMEWORKUDK_TARGET" && -f "$OFFICE16_UNIX/WinAppSDK/Microsoft.Internal.FrameworkUdk.dll" ]]; then
+      sha256sum "$FRAMEWORKUDK_TARGET" "$OFFICE16_UNIX/WinAppSDK/Microsoft.Internal.FrameworkUdk.dll"
+    else
+      echo "missing FrameworkUdk materialization"
+    fi
+    echo
+    run_wine reg query 'HKLM\Software\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.UI.Dispatching.DispatcherQueue' /v DllPath || true
+    run_wine reg query 'HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.UI.Dispatching.DispatcherQueue' /v DllPath || true
+    run_wine reg query 'HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.DispatcherQueue' /v DllPath || true
+    run_wine reg query 'HKLM\Software\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.Profile.SharedModeSettings' /v DllPath || true
+    run_wine reg query 'HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.Profile.SharedModeSettings' /v DllPath || true
     ;;
   launch-excel)
     run_wine "$EXCEL_EXE"

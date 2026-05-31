@@ -1,0 +1,28 @@
+Prefix: /home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx
+Office16: /home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx/drive_c/Program Files (x86)/Microsoft Office/root/Office16
+
+cd2df768786b5dd610a81b4465b2b5808c172ef927f521311241c73637751de7  /home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx/drive_c/windows/syswow64/CoreMessagingXP.dll
+cd2df768786b5dd610a81b4465b2b5808c172ef927f521311241c73637751de7  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/i386-windows/coremessaging.dll
+a15d0b2280cb530b3a91bdccaf735ab59d7eee720193775acbeaaa1b1b5d87e8  /home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx/drive_c/windows/syswow64/Microsoft.Internal.FrameworkUdk.dll
+a15d0b2280cb530b3a91bdccaf735ab59d7eee720193775acbeaaa1b1b5d87e8  /home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx/drive_c/Program Files (x86)/Microsoft Office/root/Office16/WinAppSDK/Microsoft.Internal.FrameworkUdk.dll
+
+
+HKEY_LOCAL_MACHINE\Software\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.UI.Dispatching.DispatcherQueue
+    DllPath    REG_SZ    C:\windows\system32\coremessaging.dll
+
+
+HKEY_LOCAL_MACHINE\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Microsoft.UI.Dispatching.DispatcherQueue
+    DllPath    REG_SZ    C:\windows\system32\coremessaging.dll
+
+
+HKEY_LOCAL_MACHINE\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.DispatcherQueue
+    DllPath    REG_SZ    C:\windows\system32\coremessaging.dll
+
+
+HKEY_LOCAL_MACHINE\Software\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.Profile.SharedModeSettings
+    DllPath    REG_SZ    C:\windows\system32\windows.system.profile.systemmanufacturers.dll
+
+
+HKEY_LOCAL_MACHINE\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.Profile.SharedModeSettings
+    DllPath    REG_SZ    C:\windows\system32\windows.system.profile.systemmanufacturers.dll
+
