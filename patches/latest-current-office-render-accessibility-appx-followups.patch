@@ -8,13 +8,13 @@ index 46300bd9e6..34c5716d10 100644
      UINT i;
 +    static BOOL broke_on_office_repair_event;
 +    static BOOL traced_ospp_80070002_event;
- 
+
      FIXME("(%p,0x%04x,0x%04x,0x%08lx,%p,0x%04x,0x%08lx,%p,%p): stub\n", hEventLog,
            wType, wCategory, dwEventID, lpUserSid, wNumStrings, dwDataSize, lpStrings, lpRawData);
 @@ -641,10 +643,58 @@ BOOL WINAPI ReportEventW( HANDLE hEventLog, WORD wType, WORD wCategory, DWORD dw
      if (wNumStrings == 0) return TRUE;
      if (!lpStrings) return TRUE;
- 
+
 +    if (!traced_ospp_80070002_event && dwEventID == 0xc00003e9)
 +    {
 +        for (i = 0; i < wNumStrings; i++)
@@ -64,7 +64,7 @@ index 46300bd9e6..34c5716d10 100644
      for (i = 0; i < wNumStrings; i++)
      {
          const WCHAR *line = lpStrings[i];
- 
+
 +        FIXME("event string[%u]: %s\n", i, debugstr_w(line));
 +
          while (*line)
@@ -76,7 +76,7 @@ index edef0414d2..2e58f4c5a6 100644
 +++ b/dlls/appxdeploymentclient/classes.idl
 @@ -21,3 +21,27 @@
  #pragma makedep register
- 
+
  #include "windows.management.deployment.idl"
 +
 +namespace Windows.Management.Deployment
@@ -109,7 +109,7 @@ index 7efbf96ea7..acdc9196a3 100644
 @@ -41,6 +41,9 @@ HRESULT WINAPI DllGetActivationFactory( HSTRING classid, IActivationFactory **fa
      if (!wcscmp( buffer, RuntimeClass_Windows_Management_Deployment_PackageManager ))
          IActivationFactory_QueryInterface( package_manager_factory, &IID_IActivationFactory, (void **)factory );
- 
+
 +    if (!wcscmp( buffer, L"Windows.Management.Deployment.AddPackageOptions" ))
 +        IActivationFactory_QueryInterface( add_package_options_factory, &IID_IActivationFactory, (void **)factory );
 +
@@ -122,11 +122,11 @@ index 50dcb0f928..145e07aad0 100644
 +++ b/dlls/appxdeploymentclient/package.c
 @@ -18,6 +18,7 @@
   */
- 
+
  #include "private.h"
 +#include "asyncinfo.h"
  #include "wine/debug.h"
- 
+
  WINE_DEFAULT_DEBUG_CHANNEL(appx);
 @@ -26,12 +27,742 @@ struct package_manager
  {
@@ -143,7 +143,7 @@ index 50dcb0f928..145e07aad0 100644
 +    IIterator_Package IIterator_Package_iface;
      LONG ref;
  };
- 
+
  static inline struct package_manager *impl_from_IPackageManager( IPackageManager *iface )
  {
 -    return CONTAINING_RECORD( iface, struct package_manager, IPackageManager_iface );
@@ -870,12 +870,12 @@ index 50dcb0f928..145e07aad0 100644
 +    *operation = &impl->IAsyncOperationWithProgress_iface;
 +    return S_OK;
  }
- 
+
  static HRESULT WINAPI package_manager_QueryInterface( IPackageManager *iface, REFIID iid, void **out )
 @@ -57,6 +788,20 @@ static HRESULT WINAPI package_manager_QueryInterface( IPackageManager *iface, RE
          return S_OK;
      }
- 
+
 +    if (IsEqualGUID( iid, &IID_IPackageManager6_compat ))
 +    {
 +        *out = &impl->IPackageManager6_iface;
@@ -894,7 +894,7 @@ index 50dcb0f928..145e07aad0 100644
      *out = NULL;
      return E_NOINTERFACE;
 @@ -136,14 +881,14 @@ static HRESULT WINAPI package_manager_RegisterPackageAsync( IPackageManager *ifa
- 
+
  static HRESULT WINAPI package_manager_FindPackages( IPackageManager *iface, IIterable_Package **packages )
  {
 -    FIXME( "iface %p, packages %p stub!\n", iface, packages );
@@ -902,7 +902,7 @@ index 50dcb0f928..145e07aad0 100644
 +    FIXME( "iface %p, packages %p semi-stub returning empty set.\n", iface, packages );
 +    return create_empty_package_iterable( packages );
  }
- 
+
  static HRESULT WINAPI package_manager_FindPackagesByUserSecurityId( IPackageManager *iface, HSTRING sid, IIterable_Package **packages )
  {
 -    FIXME( "iface %p, sid %s, packages %p stub!\n", iface, debugstr_hstring(sid), packages );
@@ -910,16 +910,16 @@ index 50dcb0f928..145e07aad0 100644
 +    FIXME( "iface %p, sid %s, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(sid), packages );
 +    return create_empty_package_iterable( packages );
  }
- 
+
  static HRESULT WINAPI package_manager_FindPackagesByNamePublisher( IPackageManager *iface, HSTRING name, HSTRING publisher, IIterable_Package **packages )
 @@ -151,14 +896,14 @@ static HRESULT WINAPI package_manager_FindPackagesByNamePublisher( IPackageManag
      FIXME( "iface %p, name %s, publisher %s, packages %p stub!\n", iface, debugstr_hstring(name), debugstr_hstring(publisher), packages );
- 
+
      if (!name || !publisher) return E_INVALIDARG;
 -    return E_NOTIMPL;
 +    return create_empty_package_iterable( packages );
  }
- 
+
  static HRESULT WINAPI package_manager_FindPackagesByUserSecurityIdNamePublisher( IPackageManager *iface, HSTRING sid,
      HSTRING name, HSTRING publisher, IIterable_Package **packages )
  {
@@ -928,7 +928,7 @@ index 50dcb0f928..145e07aad0 100644
 +    FIXME( "iface %p, sid %s, name %s, publisher %s, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(sid), debugstr_hstring(name), debugstr_hstring(publisher), packages );
 +    return create_empty_package_iterable( packages );
  }
- 
+
  static HRESULT WINAPI package_manager_FindUsers( IPackageManager *iface, HSTRING name, IIterable_PackageUserInformation **users )
 @@ -189,15 +934,15 @@ static HRESULT WINAPI package_manager_CleanupPackageForUserAsync( IPackageManage
  static HRESULT WINAPI package_manager_FindPackagesByPackageFamilyName( IPackageManager *iface, HSTRING family_name,
@@ -939,7 +939,7 @@ index 50dcb0f928..145e07aad0 100644
 +    FIXME( "iface %p, family_name %s, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(family_name), packages );
 +    return create_empty_package_iterable( packages );
  }
- 
+
  static HRESULT WINAPI package_manager_FindPackagesByUserSecurityIdPackageFamilyName( IPackageManager *iface, HSTRING sid,
      HSTRING family_name, IIterable_Package **packages )
  {
@@ -948,10 +948,10 @@ index 50dcb0f928..145e07aad0 100644
 +    FIXME( "iface %p, sid %s, family_name %s, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(sid), debugstr_hstring(family_name), packages );
 +    return create_empty_package_iterable( packages );
  }
- 
+
  static HRESULT WINAPI package_manager_FindPackageByUserSecurityIdPackageFullName( IPackageManager *iface, HSTRING sid, HSTRING name, IPackage **package )
 @@ -259,43 +1004,43 @@ static HRESULT WINAPI package_manager2_RegisterPackageByFullNameAsync( IPackageM
- 
+
  static HRESULT WINAPI package_manager2_FindPackagesWithPackageTypes( IPackageManager2 *iface, PackageTypes types, IIterable_Package **packages )
  {
 -    FIXME( "iface %p, types %d, packages %p stub!\n", iface, types, packages );
@@ -959,7 +959,7 @@ index 50dcb0f928..145e07aad0 100644
 +    FIXME( "iface %p, types %d, packages %p semi-stub returning empty set.\n", iface, types, packages );
 +    return create_empty_package_iterable( packages );
  }
- 
+
  static HRESULT WINAPI package_manager2_FindPackagesByUserSecurityIdWithPackageTypes( IPackageManager2 *iface, HSTRING sid,
      PackageTypes types, IIterable_Package **packages )
  {
@@ -968,7 +968,7 @@ index 50dcb0f928..145e07aad0 100644
 +    FIXME( "iface %p, sid %s, types %d, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(sid), types, packages );
 +    return create_empty_package_iterable( packages );
  }
- 
+
  static HRESULT WINAPI package_manager2_FindPackagesByNamePublisherWithPackageTypes( IPackageManager2 *iface, HSTRING name, HSTRING publisher,
      PackageTypes types, IIterable_Package **packages )
  {
@@ -977,7 +977,7 @@ index 50dcb0f928..145e07aad0 100644
 +    FIXME( "iface %p, name %s, publisher %s, types %d, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(name), debugstr_hstring(publisher), types, packages );
 +    return create_empty_package_iterable( packages );
  }
- 
+
  static HRESULT WINAPI package_manager2_FindPackagesByUserSecurityIdNamePublisherWithPackageTypes( IPackageManager2 *iface, HSTRING sid, HSTRING name,
      HSTRING publisher, PackageTypes types, IIterable_Package **packages )
  {
@@ -986,7 +986,7 @@ index 50dcb0f928..145e07aad0 100644
 +    FIXME( "iface %p, sid %s, name %s, publisher %s, types %d, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(sid), debugstr_hstring(name), debugstr_hstring(publisher), types, packages );
 +    return create_empty_package_iterable( packages );
  }
- 
+
  static HRESULT WINAPI package_manager2_FindPackagesByPackageFamilyNameWithPackageTypes( IPackageManager2 *iface, HSTRING family_name, PackageTypes types,
     IIterable_Package **packages )
  {
@@ -995,7 +995,7 @@ index 50dcb0f928..145e07aad0 100644
 +    FIXME( "iface %p, family_name %s, types %d, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(family_name), types, packages );
 +    return create_empty_package_iterable( packages );
  }
- 
+
  static HRESULT WINAPI package_manager2_FindPackagesByUserSecurityIdPackageFamilyNameWithPackageTypes( IPackageManager2 *iface, HSTRING sid, HSTRING family_name,
      PackageTypes types, IIterable_Package **packages )
  {
@@ -1004,12 +1004,12 @@ index 50dcb0f928..145e07aad0 100644
 +    FIXME( "iface %p, sid %s, family_name %s, types %d, packages %p semi-stub returning empty set.\n", iface, debugstr_hstring(sid), debugstr_hstring(family_name), types, packages );
 +    return create_empty_package_iterable( packages );
  }
- 
+
  static HRESULT WINAPI package_manager2_StageUserDataAsync( IPackageManager2 *iface, HSTRING name,
 @@ -327,6 +1072,240 @@ static const struct IPackageManager2Vtbl package_manager2_vtbl =
      package_manager2_StageUserDataAsync,
  };
- 
+
 +static HRESULT WINAPI package_manager6_QueryInterface( IInspectable *iface, REFIID iid, void **out )
 +{
 +    struct package_manager *impl = impl_from_IPackageManager6( iface );
@@ -1248,7 +1248,7 @@ index 50dcb0f928..145e07aad0 100644
  {
      IActivationFactory IActivationFactory_iface;
 @@ -346,6 +1325,7 @@ static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID
- 
+
      if (IsEqualGUID( iid, &IID_IUnknown ) ||
          IsEqualGUID( iid, &IID_IInspectable ) ||
 +        IsEqualGUID( iid, &IID_IAgileObject ) ||
@@ -1256,17 +1256,17 @@ index 50dcb0f928..145e07aad0 100644
      {
          *out = &impl->IActivationFactory_iface;
 @@ -406,6 +1386,8 @@ static HRESULT WINAPI factory_ActivateInstance( IActivationFactory *iface, IInsp
- 
+
      impl->IPackageManager_iface.lpVtbl = &package_manager_vtbl;
      impl->IPackageManager2_iface.lpVtbl = &package_manager2_vtbl;
 +    impl->IPackageManager6_iface.lpVtbl = (const IInspectableVtbl *)&package_manager6_vtbl;
 +    impl->IPackageManager9_iface.lpVtbl = (const IInspectableVtbl *)&package_manager9_vtbl;
      impl->ref = 1;
- 
+
      *instance = (IInspectable *)&impl->IPackageManager_iface;
 @@ -432,3 +1414,102 @@ static struct package_manager_statics package_manager_statics =
  };
- 
+
  IActivationFactory *package_manager_factory = &package_manager_statics.IActivationFactory_iface;
 +
 +struct add_package_options_statics
@@ -1373,10 +1373,10 @@ index cc35ab9d7e..78b439f2e1 100644
 +++ b/dlls/appxdeploymentclient/private.h
 @@ -37,6 +37,7 @@
  #include "windows.management.deployment.h"
- 
+
  extern IActivationFactory *package_manager_factory;
 +extern IActivationFactory *add_package_options_factory;
- 
+
  #define DEFINE_IINSPECTABLE_( pfx, iface_type, impl_type, impl_from, iface_mem, expr )             \
      static inline impl_type *impl_from( iface_type *iface )                                        \
 diff --git a/dlls/combase/combase.c b/dlls/combase/combase.c
@@ -1386,7 +1386,7 @@ index b3a1c9bd8f..53d39b1fee 100644
 @@ -3359,6 +3359,16 @@ HRESULT WINAPI CoRegisterSurrogateEx(REFGUID guid, void *reserved)
      return E_NOTIMPL;
  }
- 
+
 +/***********************************************************************
 + *           CoRegisterActivationFilter  (combase.@)
 + */
@@ -1420,7 +1420,7 @@ index 0aa0fc43a9..1795096991 100644
 @@ -1,4 +1,5 @@
  MODULE = coremessaging.dll
 +IMPORTS = combase
- 
+
  SOURCES = \
  	main.c
 diff --git a/dlls/coremessaging/coremessaging.spec b/dlls/coremessaging/coremessaging.spec
@@ -1437,28 +1437,31 @@ index 58f2be2dc8..fb98c80207 100644
  @ stub GetDispatcherQueueForCurrentThread
  @ stub MsgBlobCreateShared
 diff --git a/dlls/coremessaging/main.c b/dlls/coremessaging/main.c
-index 4944f28a49..d0b724c2c9 100644
+index 4944f28a49..b327ed001d 100644
 --- a/dlls/coremessaging/main.c
 +++ b/dlls/coremessaging/main.c
-@@ -17,14 +17,339 @@
+@@ -17,14 +17,439 @@
   * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
   */
- 
+
 +#define COBJMACROS
 +#include "initguid.h"
 +#include "activation.h"
  #include "dispatcherqueue.h"
 +#include "hstring.h"
++#include "weakreference.h"
  #include "wine/debug.h"
- 
+
  WINE_DEFAULT_DEBUG_CHANNEL(messaging);
- 
+
 +HRESULT WINAPI WindowsCreateString( const WCHAR *source, UINT32 length, HSTRING *string );
 +const WCHAR *WINAPI WindowsGetStringRawBuffer( HSTRING string, UINT32 *length );
 +
 +struct dispatcher_queue
 +{
 +    __x_ABI_CWindows_CSystem_CIDispatcherQueue IDispatcherQueue_iface;
++    IWeakReferenceSource IWeakReferenceSource_iface;
++    IWeakReference IWeakReference_iface;
 +    LONG ref;
 +};
 +
@@ -1475,6 +1478,16 @@ index 4944f28a49..d0b724c2c9 100644
 +static inline struct dispatcher_queue *impl_from_IDispatcherQueue( __x_ABI_CWindows_CSystem_CIDispatcherQueue *iface )
 +{
 +    return CONTAINING_RECORD( iface, struct dispatcher_queue, IDispatcherQueue_iface );
++}
++
++static inline struct dispatcher_queue *impl_from_IWeakReferenceSource( IWeakReferenceSource *iface )
++{
++    return CONTAINING_RECORD( iface, struct dispatcher_queue, IWeakReferenceSource_iface );
++}
++
++static inline struct dispatcher_queue *impl_from_IWeakReference( IWeakReference *iface )
++{
++    return CONTAINING_RECORD( iface, struct dispatcher_queue, IWeakReference_iface );
 +}
 +
 +static inline struct dispatcher_queue_factory *impl_from_IActivationFactory( IActivationFactory *iface )
@@ -1497,6 +1510,13 @@ index 4944f28a49..d0b724c2c9 100644
 +        IsEqualGUID( iid, &IID___x_ABI_CWindows_CSystem_CIDispatcherQueue ))
 +    {
 +        *out = iface;
++        __x_ABI_CWindows_CSystem_CIDispatcherQueue_AddRef( iface );
++        return S_OK;
++    }
++
++    if (IsEqualGUID( iid, &IID_IWeakReferenceSource ))
++    {
++        *out = &impl_from_IDispatcherQueue( iface )->IWeakReferenceSource_iface;
 +        __x_ABI_CWindows_CSystem_CIDispatcherQueue_AddRef( iface );
 +        return S_OK;
 +    }
@@ -1612,6 +1632,84 @@ index 4944f28a49..d0b724c2c9 100644
 +    queue_remove_ShutdownStarting,
 +    queue_add_ShutdownCompleted,
 +    queue_remove_ShutdownCompleted,
++};
++
++static HRESULT WINAPI weak_reference_QueryInterface( IWeakReference *iface, REFIID iid, void **out )
++{
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid(iid), out );
++
++    if (IsEqualGUID( iid, &IID_IUnknown ) ||
++        IsEqualGUID( iid, &IID_IWeakReference ))
++    {
++        *out = iface;
++        IWeakReference_AddRef( iface );
++        return S_OK;
++    }
++
++    *out = NULL;
++    return E_NOINTERFACE;
++}
++
++static ULONG WINAPI weak_reference_AddRef( IWeakReference *iface )
++{
++    return __x_ABI_CWindows_CSystem_CIDispatcherQueue_AddRef( &impl_from_IWeakReference( iface )->IDispatcherQueue_iface );
++}
++
++static ULONG WINAPI weak_reference_Release( IWeakReference *iface )
++{
++    return __x_ABI_CWindows_CSystem_CIDispatcherQueue_Release( &impl_from_IWeakReference( iface )->IDispatcherQueue_iface );
++}
++
++static HRESULT WINAPI weak_reference_Resolve( IWeakReference *iface, REFIID iid, IInspectable **out )
++{
++    struct dispatcher_queue *impl = impl_from_IWeakReference( iface );
++
++    TRACE( "iface %p, iid %s, out %p.\n", iface, debugstr_guid(iid), out );
++    return __x_ABI_CWindows_CSystem_CIDispatcherQueue_QueryInterface( &impl->IDispatcherQueue_iface, iid, (void **)out );
++}
++
++static const IWeakReferenceVtbl weak_reference_vtbl =
++{
++    weak_reference_QueryInterface,
++    weak_reference_AddRef,
++    weak_reference_Release,
++    weak_reference_Resolve,
++};
++
++static HRESULT WINAPI weak_reference_source_QueryInterface( IWeakReferenceSource *iface, REFIID iid, void **out )
++{
++    struct dispatcher_queue *impl = impl_from_IWeakReferenceSource( iface );
++    return __x_ABI_CWindows_CSystem_CIDispatcherQueue_QueryInterface( &impl->IDispatcherQueue_iface, iid, out );
++}
++
++static ULONG WINAPI weak_reference_source_AddRef( IWeakReferenceSource *iface )
++{
++    return __x_ABI_CWindows_CSystem_CIDispatcherQueue_AddRef( &impl_from_IWeakReferenceSource( iface )->IDispatcherQueue_iface );
++}
++
++static ULONG WINAPI weak_reference_source_Release( IWeakReferenceSource *iface )
++{
++    return __x_ABI_CWindows_CSystem_CIDispatcherQueue_Release( &impl_from_IWeakReferenceSource( iface )->IDispatcherQueue_iface );
++}
++
++static HRESULT WINAPI weak_reference_source_GetWeakReference( IWeakReferenceSource *iface, IWeakReference **ref )
++{
++    struct dispatcher_queue *impl = impl_from_IWeakReferenceSource( iface );
++
++    TRACE( "iface %p, ref %p.\n", iface, ref );
++
++    if (!ref) return E_INVALIDARG;
++    *ref = &impl->IWeakReference_iface;
++    IWeakReference_AddRef( *ref );
++    return S_OK;
++}
++
++static const IWeakReferenceSourceVtbl weak_reference_source_vtbl =
++{
++    weak_reference_source_QueryInterface,
++    weak_reference_source_AddRef,
++    weak_reference_source_Release,
++    weak_reference_source_GetWeakReference,
 +};
 +
 +static HRESULT dispatcher_queue_factory_query_interface( struct dispatcher_queue_factory *impl, REFIID iid, void **out )
@@ -1748,6 +1846,8 @@ index 4944f28a49..d0b724c2c9 100644
 +static struct dispatcher_queue queue =
 +{
 +    { &queue_vtbl },
++    { &weak_reference_source_vtbl },
++    { &weak_reference_vtbl },
 +    1,
 +};
 +
@@ -1795,7 +1895,7 @@ index 2deacc1cb1..3335a74c74 100644
 @@ -2882,6 +2883,46 @@ static BOOL CRYPT_AsnDecodeAlgorithmId(const BYTE *pbEncoded, DWORD cbEncoded,
      return ret;
  }
- 
+
 +static BOOL CRYPT_AsnDecodeAttributeTypeValue(const BYTE *pbEncoded, DWORD cbEncoded,
 + DWORD dwFlags, void *pvStructInfo, DWORD *pcbStructInfo, DWORD *pcbDecoded)
 +{
@@ -1869,19 +1969,19 @@ index 3da3ad2e65..ea4349dd48 100644
 -    FIXME("iface %p, geometry %p, combine_mode %#x, transform %p, tolerance %.8e, sink %p stub!\n",
 +    FIXME("iface %p, geometry %p, combine_mode %#x, transform %p, tolerance %.8e, sink %p semi-stub!\n",
              iface, geometry, combine_mode, transform, tolerance, sink);
- 
+
 -    return E_NOTIMPL;
 +    return d2d_rectangle_geometry_Simplify(iface, D2D1_GEOMETRY_SIMPLIFICATION_OPTION_LINES,
 +            transform, tolerance, sink);
  }
- 
+
  static HRESULT STDMETHODCALLTYPE d2d_rectangle_geometry_Outline(ID2D1RectangleGeometry *iface,
 diff --git a/dlls/dwrite/font.c b/dlls/dwrite/font.c
 index c400410c64..a6b5d93706 100644
 --- a/dlls/dwrite/font.c
 +++ b/dlls/dwrite/font.c
 @@ -3404,9 +3404,41 @@ static HRESULT WINAPI dwritefontcollection_GetFontFromFontFace(IDWriteFontCollec
- 
+
  static HRESULT WINAPI dwritefontcollection1_GetFontSet(IDWriteFontCollection3 *iface, IDWriteFontSet **fontset)
  {
 -    FIXME("%p, %p.\n", iface, fontset);
@@ -1890,7 +1990,7 @@ index c400410c64..a6b5d93706 100644
 +    IDWriteFontSet1 *fontset1;
 +    HRESULT hr;
 +    size_t count = 0, i, j, offset = 0;
- 
+
 -    return E_NOTIMPL;
 +    TRACE("%p, %p.\n", iface, fontset);
 +
@@ -1922,16 +2022,16 @@ index c400410c64..a6b5d93706 100644
 +    IDWriteFontSet1_Release(fontset1);
 +    return hr;
  }
- 
+
  static HRESULT WINAPI dwritefontcollection1_GetFontFamily(IDWriteFontCollection3 *iface, UINT32 index,
 @@ -3469,9 +3501,18 @@ static DWRITE_FONT_FAMILY_MODEL WINAPI dwritefontcollection2_GetFontFamilyModel(
- 
+
  static HRESULT WINAPI dwritefontcollection2_GetFontSet(IDWriteFontCollection3 *iface, IDWriteFontSet1 **fontset)
  {
 -    FIXME("%p, %p.\n", iface, fontset);
 +    IDWriteFontSet *fontset0;
 +    HRESULT hr;
- 
+
 -    return E_NOTIMPL;
 +    TRACE("%p, %p.\n", iface, fontset);
 +
@@ -1943,7 +2043,7 @@ index c400410c64..a6b5d93706 100644
 +    IDWriteFontSet_Release(fontset0);
 +    return hr;
  }
- 
+
  static HANDLE WINAPI dwritefontcollection3_GetExpirationEvent(IDWriteFontCollection3 *iface)
 diff --git a/dlls/kernel32/kernel32.spec b/dlls/kernel32/kernel32.spec
 index 4634363505..8bd716e538 100644
@@ -1989,7 +2089,7 @@ index 605538cdc0..e19677d9b9 100644
 @@ -1440,6 +1440,16 @@ HANDLE WINAPI FindFirstFileNameW( const WCHAR *file_name, DWORD flags, DWORD *le
      return INVALID_HANDLE_VALUE;
  }
- 
+
 +/******************************************************************************
 + *     FindNextFileNameW   (kernelbase.@)
 + */
@@ -2005,8 +2105,8 @@ index 605538cdc0..e19677d9b9 100644
   */
 @@ -3892,6 +3902,16 @@ BOOL WINAPI DECLSPEC_HOTPATCH SetFileTime( HANDLE file, const FILETIME *ctime,
  }
- 
- 
+
+
 +/***********************************************************************
 + *	SetFileShortNameW   (kernelbase.@)
 + */
@@ -2060,8 +2160,8 @@ index 17b414128b..a49bc092bd 100644
 +++ b/dlls/kernelbase/version.c
 @@ -1811,6 +1811,27 @@ LONG WINAPI PackageFullNameFromId(const PACKAGE_ID *package_id, UINT32 *length,
  }
- 
- 
+
+
 +/***********************************************************************
 + *         FindPackagesByPackageFamily   (kernelbase.@)
 + */
@@ -2162,7 +2262,7 @@ index 732b819c15..a865de75ca 100644
 @@ -1049,6 +1049,35 @@ void * WINAPI RtlEnumerateGenericTableWithoutSplayingAvl(RTL_AVL_TABLE *table, P
      return NULL;
  }
- 
+
 +/******************************************************************************
 + *           RtlEnumerateGenericTableAvl  (NTDLL.@)
 + */
@@ -2202,7 +2302,7 @@ index c6d5a3d0c4..7e2b2d9059 100644
 @@ -6441,6 +6441,14 @@ static NTSTATUS cancel_async_file_read( HANDLE handle, IO_STATUS_BLOCK *io )
      return count ? STATUS_SUCCESS : STATUS_NOT_FOUND;
  }
- 
+
 +/* CW HACK 14391 */
 +NTSTATUS WINAPI __wine_rpc_NtReadFile( HANDLE handle, HANDLE event, PIO_APC_ROUTINE apc, void *apc_user,
 +                                       IO_STATUS_BLOCK *io, void *buffer, ULONG length,
@@ -2221,7 +2321,7 @@ index 140a86c298..fd42a4db48 100644
 @@ -121,6 +121,8 @@ void *pRtlUserThreadStart = NULL;
  void *p__wine_ctrl_routine = NULL;
  SYSTEM_DLL_INIT_BLOCK *pLdrSystemDllInitBlock = NULL;
- 
+
 +extern typeof(NtReadFile) __wine_rpc_NtReadFile;
 +
  static void * const syscalls[] =
@@ -2246,7 +2346,7 @@ index b2096d5d55..d00967d57f 100644
 @@ -101,6 +101,24 @@ HRESULT WINAPI CreateStdAccessibleObject( HWND hwnd, LONG idObject,
      }
  }
- 
+
 +HRESULT WINAPI CreateStdAccessibleProxyW( HWND hwnd, LPCWSTR class_name, LONG idObject,
 +        REFIID riidInterface, void **ppvObject )
 +{
@@ -2290,7 +2390,7 @@ index 8d53e7cee3..f6f712c1f5 100644
 @@ -372,6 +372,17 @@ static RPC_STATUS rpcrt4_ncalrpc_handoff(RpcConnection *old_conn, RpcConnection
    return status;
  }
- 
+
 +/*
 + * CXHACK 14391:
 + * ClickToRun hooks NtReadFile and many other APIs. Some hooked functions do
@@ -2332,9 +2432,9 @@ index 8819961d7c..8e83a3c8d4 100644
 --- a/dlls/sppc/sppc.c
 +++ b/dlls/sppc/sppc.c
 @@ -31,21 +31,624 @@
- 
+
  WINE_DEFAULT_DEBUG_CHANNEL(slc);
- 
+
 +typedef PVOID HSLP;
 +
 +static SLID last_consumed_right;
@@ -2569,7 +2669,7 @@ index 8819961d7c..8e83a3c8d4 100644
 +    WCHAR env[4];
 +
      FIXME("(%p %p %p %s %p %p) stub\n", handle, app, product, debugstr_w(name), count, status );
- 
+
 -    return SL_E_RIGHT_NOT_CONSUMED;
 +    if (!handle || name || !count || !status)
 +        return E_INVALIDARG;
@@ -2937,16 +3037,16 @@ index 8819961d7c..8e83a3c8d4 100644
 +
 +    return S_OK;
  }
- 
+
  HRESULT WINAPI SLOpen(HSLC *handle)
  {
 +    WCHAR env[4];
 +
      FIXME("(%p) stub\n", handle );
- 
+
      if (!handle)
          return E_INVALIDARG;
- 
+
 +    if (GetEnvironmentVariableW(L"OFFICE_SPP_NATIVE_SLOPEN_ERROR", env, ARRAY_SIZE(env)))
 +    {
 +        *handle = NULL;
@@ -2955,7 +3055,7 @@ index 8819961d7c..8e83a3c8d4 100644
 +    }
 +
      *handle = (HSLC)0xdeadbeef;
- 
+
      return S_OK;
 diff --git a/dlls/sppc/sppc.spec b/dlls/sppc/sppc.spec
 index 6926d4d8b6..82a52059f1 100644
@@ -3040,7 +3140,7 @@ index 5d97963af1..12fd211352 100644
 +        IActivationFactory_QueryInterface( retail_info_factory, &IID_IActivationFactory, (void **)factory );
      else if (!wcscmp( buffer, RuntimeClass_Windows_System_UserProfile_AdvertisingManager ))
          IActivationFactory_QueryInterface( advertising_manager_factory, &IID_IActivationFactory, (void **)factory );
- 
+
 diff --git a/dlls/twinapi.appcore/private.h b/dlls/twinapi.appcore/private.h
 index 7063962e2b..90ae36f859 100644
 --- a/dlls/twinapi.appcore/private.h
@@ -3050,7 +3150,7 @@ index 7063962e2b..90ae36f859 100644
  extern IActivationFactory *analytics_info_factory;
  extern IActivationFactory *advertising_manager_factory;
 +extern IActivationFactory *retail_info_factory;
- 
+
  #define DEFINE_IINSPECTABLE_( pfx, iface_type, impl_type, impl_from, iface_mem, expr )             \
      static inline impl_type *impl_from( iface_type *iface )                                        \
 diff --git a/dlls/userenv/Makefile.in b/dlls/userenv/Makefile.in
@@ -3063,14 +3163,14 @@ index 193232e942..8f3b193b79 100644
 -IMPORTS   = advapi32
 +IMPORTS   = advapi32 ole32
  IMPORTLIB = userenv
- 
+
  EXTRADLLFLAGS = -Wb,--prefer-native
 diff --git a/dlls/userenv/userenv.spec b/dlls/userenv/userenv.spec
 index 6395bba194..e45bc6a613 100644
 --- a/dlls/userenv/userenv.spec
 +++ b/dlls/userenv/userenv.spec
 @@ -2,6 +2,7 @@
- 
+
  @ stdcall CreateAppContainerProfile(wstr wstr wstr ptr long ptr)
  @ stdcall CreateEnvironmentBlock(ptr ptr long)
 +@ stdcall DeriveAppContainerSidFromAppContainerName(wstr ptr)
@@ -3090,7 +3190,7 @@ index 2d9f245f1b..00edbe2f66 100644
 --- a/dlls/userenv/userenv_main.c
 +++ b/dlls/userenv/userenv_main.c
 @@ -697,3 +697,70 @@ HRESULT WINAPI CreateAppContainerProfile(PCWSTR container_name, PCWSTR display_n
- 
+
      return E_NOTIMPL;
  }
 +
@@ -3165,7 +3265,7 @@ index 82646f4d8f..6d9e2b30a8 100644
 --- a/dlls/windows.applicationmodel/Makefile.in
 +++ b/dlls/windows.applicationmodel/Makefile.in
 @@ -3,5 +3,6 @@ IMPORTS = combase kernelbase
- 
+
  SOURCES = \
  	classes.idl \
 +	core_application.c \
@@ -3176,12 +3276,12 @@ index efc6dfd292..8f7766516d 100644
 --- a/dlls/windows.applicationmodel/main.c
 +++ b/dlls/windows.applicationmodel/main.c
 @@ -40,6 +40,8 @@ HRESULT WINAPI DllGetActivationFactory( HSTRING classid, IActivationFactory **fa
- 
+
      if (!wcscmp( buffer, RuntimeClass_Windows_ApplicationModel_Package ))
          IActivationFactory_QueryInterface( package_factory, &IID_IActivationFactory, (void **)factory );
 +    else if (!wcscmp( buffer, RuntimeClass_Windows_ApplicationModel_Core_CoreApplication ))
 +        IActivationFactory_QueryInterface( core_application_factory, &IID_IActivationFactory, (void **)factory );
- 
+
      if (*factory) return S_OK;
      return CLASS_E_CLASSNOTAVAILABLE;
 diff --git a/dlls/windows.applicationmodel/private.h b/dlls/windows.applicationmodel/private.h
@@ -3196,10 +3296,10 @@ index ef7750159d..27253110f3 100644
  #define WIDL_using_Windows_Storage
  #include "windows.applicationmodel.h"
 +#include "windows.applicationmodel.core.h"
- 
+
  extern IActivationFactory *package_factory;
 +extern IActivationFactory *core_application_factory;
- 
+
  #define DEFINE_IINSPECTABLE_( pfx, iface_type, impl_type, impl_from, iface_mem, expr )             \
      static inline impl_type *impl_from( iface_type *iface )                                        \
 diff --git a/dlls/windows.globalization/main.c b/dlls/windows.globalization/main.c
@@ -3213,11 +3313,11 @@ index 37746ae8d5..c20a044c86 100644
 +    ILanguageStatics ILanguageStatics_iface;
      LONG ref;
  };
- 
+
 @@ -429,6 +430,11 @@ static inline struct language_factory *impl_from_ILanguageFactory(ILanguageFacto
      return CONTAINING_RECORD(iface, struct language_factory, ILanguageFactory_iface);
  }
- 
+
 +static inline struct language_factory *impl_from_ILanguageStatics(ILanguageStatics *iface)
 +{
 +    return CONTAINING_RECORD(iface, struct language_factory, ILanguageStatics_iface);
@@ -3229,7 +3329,7 @@ index 37746ae8d5..c20a044c86 100644
 @@ -786,6 +792,13 @@ static HRESULT STDMETHODCALLTYPE windows_globalization_language_factory_QueryInt
          return S_OK;
      }
- 
+
 +    if (IsEqualGUID(iid, &IID_ILanguageStatics))
 +    {
 +        IUnknown_AddRef(iface);
@@ -3243,7 +3343,7 @@ index 37746ae8d5..c20a044c86 100644
 @@ -895,10 +908,96 @@ static const struct ILanguageFactoryVtbl language_factory_vtbl =
      language_factory_CreateLanguage,
  };
- 
+
 +static HRESULT STDMETHODCALLTYPE language_statics_QueryInterface(
 +        ILanguageStatics *iface, REFIID iid, void **object)
 +{
@@ -3336,7 +3436,7 @@ index 37746ae8d5..c20a044c86 100644
 +    {&language_statics_vtbl},
      0
  };
- 
+
 diff --git a/dlls/windows.security.authentication.onlineid/Makefile.in b/dlls/windows.security.authentication.onlineid/Makefile.in
 index ee3a15b261..cf29d2df7d 100644
 --- a/dlls/windows.security.authentication.onlineid/Makefile.in
@@ -3361,7 +3461,7 @@ index 4e310d8839..a460393643 100644
 +        IActivationFactory_QueryInterface( web_authentication_core_manager_factory, &IID_IActivationFactory, (void **)factory );
 +    if (!wcscmp( buffer, L"Windows.Security.EnterpriseData.ProtectionPolicyManager" ))
 +        IActivationFactory_QueryInterface( protection_policy_manager_factory, &IID_IActivationFactory, (void **)factory );
- 
+
      if (*factory) return S_OK;
      return CLASS_E_CLASSNOTAVAILABLE;
 diff --git a/dlls/windows.security.authentication.onlineid/private.h b/dlls/windows.security.authentication.onlineid/private.h
@@ -3369,14 +3469,80 @@ index 96df5d9106..de16542840 100644
 --- a/dlls/windows.security.authentication.onlineid/private.h
 +++ b/dlls/windows.security.authentication.onlineid/private.h
 @@ -39,6 +39,8 @@
- 
+
  extern IActivationFactory *authenticator_factory;
  extern IActivationFactory *ticket_factory;
 +extern IActivationFactory *web_authentication_core_manager_factory;
 +extern IActivationFactory *protection_policy_manager_factory;
- 
+
  #define DEFINE_IINSPECTABLE_( pfx, iface_type, impl_type, impl_from, iface_mem, expr )             \
      static inline impl_type *impl_from( iface_type *iface )                                        \
+diff --git a/dlls/wintypes/main.c b/dlls/wintypes/main.c
+index e5ed6d3b33..f8c308b906 100644
+--- a/dlls/wintypes/main.c
++++ b/dlls/wintypes/main.c
+@@ -401,6 +401,7 @@ struct property_value
+         IReference_boolean boolean_iface;
+         IReference_DOUBLE double_iface;
+         IReference_HSTRING hstring_iface;
++        IReference_UINT32 uint32_iface;
+     } irefs;
+     PropertyType type;
+     unsigned int value_size;
+@@ -481,6 +482,12 @@ static HRESULT STDMETHODCALLTYPE property_value_QueryInterface(IPropertyValue *i
+         *out = &impl->irefs.hstring_iface;
+         return S_OK;
+     }
++    else if (IsEqualIID(riid, &IID_IReference_UINT32) && impl->type == PropertyType_UInt32)
++    {
++        IReference_UINT32_AddRef(&impl->irefs.uint32_iface);
++        *out = &impl->irefs.uint32_iface;
++        return S_OK;
++    }
+
+     FIXME("%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid(riid));
+     *out = NULL;
+@@ -947,6 +954,31 @@ static const struct IReference_DOUBLEVtbl iref_double_vtbl =
+     iref_double_get_Value,
+ };
+
++DEFINE_IINSPECTABLE_(iref_uint32, IReference_UINT32, struct property_value,
++                     impl_from_IReference_UINT32, irefs.uint32_iface, &impl->IPropertyValue_iface);
++
++static HRESULT STDMETHODCALLTYPE iref_uint32_get_Value(IReference_UINT32 *iface, UINT32 *value)
++{
++    struct property_value *impl = impl_from_IReference_UINT32(iface);
++
++    TRACE("iface %p, value %p.\n", iface, value);
++
++    return property_value_GetUInt32(&impl->IPropertyValue_iface, value);
++}
++
++static const struct IReference_UINT32Vtbl iref_uint32_vtbl =
++{
++    iref_uint32_QueryInterface,
++    iref_uint32_AddRef,
++    iref_uint32_Release,
++    /* IInspectable methods */
++    iref_uint32_GetIids,
++    iref_uint32_GetRuntimeClassName,
++    iref_uint32_GetTrustLevel,
++    /* IReference<UINT32> methods */
++    iref_uint32_get_Value,
++};
++
+ DEFINE_IINSPECTABLE(property_value_statics, IPropertyValueStatics, struct property_value_statics, IActivationFactory_iface)
+
+ static HRESULT STDMETHODCALLTYPE property_value_statics_CreateEmpty(IPropertyValueStatics *iface,
+@@ -993,7 +1025,7 @@ static HRESULT STDMETHODCALLTYPE property_value_statics_CreateUInt32(IPropertyVa
+         UINT32 value, IInspectable **property_value)
+ {
+     TRACE("iface %p, value %u, property_value %p.\n", iface, value, property_value);
+-    return create_primitive_property_value(PropertyType_UInt32);
++    create_primitive_property_value_iref(PropertyType_UInt32, irefs.uint32_iface.lpVtbl, iref_uint32_vtbl);
+ }
+
+ static HRESULT STDMETHODCALLTYPE property_value_statics_CreateInt64(IPropertyValueStatics *iface,
 diff --git a/dlls/wow64/file.c b/dlls/wow64/file.c
 index 0afd02a2a7..b94e21752b 100644
 --- a/dlls/wow64/file.c
@@ -3384,7 +3550,7 @@ index 0afd02a2a7..b94e21752b 100644
 @@ -685,6 +685,31 @@ NTSTATUS WINAPI wow64_NtReadFile( UINT *args )
      return status;
  }
- 
+
 +/* CW HACK 14391 */
 +/**********************************************************************
 + *           wow64___wine_rpc_NtReadFile
@@ -3410,7 +3576,7 @@ index 0afd02a2a7..b94e21752b 100644
 +    put_iosb( io32, &io );
 +    return status;
 +}
- 
+
  /**********************************************************************
   *           wow64_NtReadFileScatter
 diff --git a/dlls/xmllite/reader.c b/dlls/xmllite/reader.c
@@ -3439,14 +3605,14 @@ index 1e146493aa..8017755565 100644
              FIXME("Unimplemented property (%u)\n", property);
              return E_NOTIMPL;
 @@ -3412,7 +3419,7 @@ static HRESULT WINAPI xmlreader_GetBaseUri(IXmlReader* iface,
- 
+
  static BOOL WINAPI xmlreader_IsDefault(IXmlReader* iface)
  {
 -    FIXME("%p: stub\n", iface);
 +    TRACE("%p.\n", iface);
      return FALSE;
  }
- 
+
 diff --git a/include/appmodel.h b/include/appmodel.h
 index cab001f60c..ab7909c69f 100644
 --- a/include/appmodel.h
@@ -3470,7 +3636,7 @@ index 4980a96e73..0398eed7aa 100644
  #define SL_E_DATATYPE_MISMATCHED      0xC004F01E
 +#define SL_E_AUTHN_CHALLENGE_NOT_SET  0xC004F079
 +#define SL_E_AUTHN_CANT_VERIFY        0xC004F07A
- 
+
  #endif /* __WINE_SLERROR_H */
 diff --git a/include/userenv.h b/include/userenv.h
 index a518de83a2..625d315885 100644
@@ -3478,7 +3644,7 @@ index a518de83a2..625d315885 100644
 +++ b/include/userenv.h
 @@ -80,6 +80,7 @@ extern "C" {
  #endif
- 
+
  USERENVAPI BOOL WINAPI CreateEnvironmentBlock(LPVOID*,HANDLE,BOOL);
 +USERENVAPI HRESULT WINAPI DeriveAppContainerSidFromAppContainerName(PCWSTR,PSID*);
  USERENVAPI BOOL WINAPI DestroyEnvironmentBlock(LPVOID);
@@ -3527,9 +3693,9 @@ index a39ab12397..0e908d4762 100644
          struct { unsigned int r[13]; } arm_regs;
          struct { unsigned __int64 x[31]; } arm64_regs;
 @@ -950,6 +950,18 @@ union udp_endpoint
- 
- 
- 
+
+
+
 +struct cpu_topology_override
 +{
 +    unsigned int cpu_count;
@@ -3551,7 +3717,7 @@ index a39ab12397..0e908d4762 100644
      unsigned __int64     monitor_serial;
 +    unsigned __int64     keystate_serial;
  } desktop_shm_t;
- 
+
  typedef volatile struct
 @@ -989,6 +1002,7 @@ typedef volatile struct
      int                  cursor_count;
@@ -3559,7 +3725,7 @@ index a39ab12397..0e908d4762 100644
      int                  keystate_lock;
 +    unsigned __int64     keystate_serial;
  } input_shm_t;
- 
+
  typedef volatile union
 @@ -1122,6 +1136,7 @@ struct init_first_thread_request
      int          debug_level;
@@ -3583,8 +3749,8 @@ index a39ab12397..0e908d4762 100644
 -    char __pad_12[4];
 +    obj_handle_t wait_handle;
  };
- 
- 
+
+
 @@ -2188,9 +2205,10 @@ struct map_image_view_request
      obj_handle_t mapping;
      client_ptr_t base;
@@ -3605,8 +3771,8 @@ index a39ab12397..0e908d4762 100644
      /* VARARG(data,bytes); */
 +    char __pad_12[4];
  };
- 
- 
+
+
 @@ -2479,6 +2499,8 @@ struct write_process_memory_request
  struct write_process_memory_reply
  {
@@ -3614,8 +3780,8 @@ index a39ab12397..0e908d4762 100644
 +    data_size_t written;
 +    char __pad_12[4];
  };
- 
- 
+
+
 @@ -2535,6 +2557,25 @@ struct flush_key_request
      obj_handle_t hkey;
  };
@@ -3662,8 +3828,8 @@ index a39ab12397..0e908d4762 100644
 +    PREFIX_32BIT,
 +    PREFIX_64BIT,
  };
- 
- 
+
+
 @@ -3042,7 +3090,22 @@ struct send_hardware_message_reply
      int             new_y;
      char __pad_28[4];
@@ -3685,9 +3851,9 @@ index a39ab12397..0e908d4762 100644
 +    int             cursor_pos_updated;
 +    char __pad_12[4];
 +};
- 
- 
- 
+
+
+
 @@ -4092,6 +4155,7 @@ struct set_user_object_info_request
      obj_handle_t handle;
      unsigned int flags;
@@ -3701,9 +3867,9 @@ index a39ab12397..0e908d4762 100644
  #define SET_USER_OBJECT_SET_FLAGS       1
  #define SET_USER_OBJECT_GET_FULL_NAME   2
 +#define SET_USER_OBJECT_SET_CLOSE_TIMEOUT 4
- 
- 
- 
+
+
+
 @@ -4241,6 +4306,8 @@ struct set_active_window_request
  {
      struct request_header __header;
@@ -3714,7 +3880,7 @@ index a39ab12397..0e908d4762 100644
  struct set_active_window_reply
  {
 @@ -4919,11 +4986,13 @@ struct get_security_object_reply
- 
+
  struct handle_info
  {
 +    client_ptr_t object;
@@ -3725,12 +3891,12 @@ index a39ab12397..0e908d4762 100644
      unsigned int type;
 +    unsigned int __pad;
  };
- 
- 
+
+
 @@ -5058,6 +5127,20 @@ struct get_directory_entries_reply
      /* VARARG(entries,directory_entries); */
  };
- 
+
 +struct query_directory_file_request
 +{
 +    struct request_header __header;
@@ -3745,8 +3911,8 @@ index a39ab12397..0e908d4762 100644
 +    /* VARARG(entries,directory_file_entries); */
 +    char __pad_12[4];
 +};
- 
- 
+
+
  struct create_symlink_request
 @@ -5329,6 +5412,7 @@ struct make_process_system_request
  {
@@ -3758,8 +3924,8 @@ index a39ab12397..0e908d4762 100644
  {
 @@ -5849,7 +5933,6 @@ struct resume_process_reply
  };
- 
- 
+
+
 -
  struct get_next_thread_request
  {
@@ -3767,7 +3933,7 @@ index a39ab12397..0e908d4762 100644
 @@ -5882,6 +5965,189 @@ struct set_keyboard_repeat_reply
      char __pad_12[4];
  };
- 
+
 +enum esync_type
 +{
 +    ESYNC_SEMAPHORE = 1,
@@ -3951,7 +4117,7 @@ index a39ab12397..0e908d4762 100644
 +    struct reply_header __header;
 +};
 +
- 
+
  enum request
  {
 @@ -5975,6 +6241,7 @@ enum request
@@ -3995,7 +4161,7 @@ index a39ab12397..0e908d4762 100644
 +    REQ_fsync_free_shm_idx,
      REQ_NB_REQUESTS
  };
- 
+
 @@ -6274,6 +6554,7 @@ union generic_request
      struct open_key_request open_key_request;
      struct delete_key_request delete_key_request;
@@ -4083,7 +4249,7 @@ index a39ab12397..0e908d4762 100644
 +};
 +
 +#define SERVER_PROTOCOL_VERSION 856
- 
+
  #endif /* __WINE_WINE_SERVER_PROTOCOL_H */
 diff --git a/server/request_handlers.h b/server/request_handlers.h
 index fd39842df5..4703de4988 100644
@@ -4128,7 +4294,7 @@ index fd39842df5..4703de4988 100644
 +DECL_HANDLER(fsync_msgwait);
 +DECL_HANDLER(get_fsync_apc_idx);
 +DECL_HANDLER(fsync_free_shm_idx);
- 
+
  typedef void (*req_handler)( const void *req, void *reply );
  static const req_handler req_handlers[REQ_NB_REQUESTS] =
 @@ -393,6 +407,7 @@ static const req_handler req_handlers[REQ_NB_REQUESTS] =
@@ -4171,7 +4337,7 @@ index fd39842df5..4703de4988 100644
 +    (req_handler)req_get_fsync_apc_idx,
 +    (req_handler)req_fsync_free_shm_idx,
  };
- 
+
  C_ASSERT( sizeof(abstime_t) == 8 );
 @@ -615,11 +643,11 @@ C_ASSERT( sizeof(object_id_t) == 8 );
  C_ASSERT( sizeof(process_id_t) == 4 );
@@ -4392,7 +4558,7 @@ index 6e38f2a837..59bdaa2e3a 100644
      fprintf( stderr, ", wait_fd=%d", req->wait_fd );
 +    dump_varargs_cpu_topology_override( ", cpu_override=", cur_size );
  }
- 
+
  static void dump_init_first_thread_reply( const struct init_first_thread_reply *req )
 @@ -306,11 +309,13 @@ static void dump_set_thread_info_request( const struct set_thread_info_request *
  static void dump_suspend_thread_request( const struct suspend_thread_request *req )
@@ -4400,13 +4566,13 @@ index 6e38f2a837..59bdaa2e3a 100644
      fprintf( stderr, " handle=%04x", req->handle );
 +    fprintf( stderr, ", waited_handle=%04x", req->waited_handle );
  }
- 
+
  static void dump_suspend_thread_reply( const struct suspend_thread_reply *req )
  {
      fprintf( stderr, " count=%d", req->count );
 +    fprintf( stderr, ", wait_handle=%04x", req->wait_handle );
  }
- 
+
  static void dump_resume_thread_request( const struct resume_thread_request *req )
 @@ -905,6 +910,7 @@ static void dump_map_image_view_request( const struct map_image_view_request *re
      fprintf( stderr, " mapping=%04x", req->mapping );
@@ -4417,19 +4583,19 @@ index 6e38f2a837..59bdaa2e3a 100644
      fprintf( stderr, ", machine=%04x", req->machine );
  }
 @@ -1056,7 +1062,8 @@ static void dump_read_process_memory_request( const struct read_process_memory_r
- 
+
  static void dump_read_process_memory_reply( const struct read_process_memory_reply *req )
  {
 -    dump_varargs_bytes( " data=", cur_size );
 +    fprintf( stderr, " unix_pid=%d", req->unix_pid );
 +    dump_varargs_bytes( ", data=", cur_size );
  }
- 
+
  static void dump_write_process_memory_request( const struct write_process_memory_request *req )
 @@ -1066,6 +1073,11 @@ static void dump_write_process_memory_request( const struct write_process_memory
      dump_varargs_bytes( ", data=", cur_size );
  }
- 
+
 +static void dump_write_process_memory_reply( const struct write_process_memory_reply *req )
 +{
 +    fprintf( stderr, " written=%u", req->written );
@@ -4441,7 +4607,7 @@ index 6e38f2a837..59bdaa2e3a 100644
 @@ -1102,6 +1114,20 @@ static void dump_flush_key_request( const struct flush_key_request *req )
      fprintf( stderr, " hkey=%04x", req->hkey );
  }
- 
+
 +static void dump_flush_key_reply( const struct flush_key_reply *req )
 +{
 +    dump_abstime( " timestamp_counter=", &req->timestamp_counter );
@@ -4471,12 +4637,12 @@ index 6e38f2a837..59bdaa2e3a 100644
 +    fprintf( stderr, " total=%u", req->total );
 +    dump_varargs_bytes( ", data=", cur_size );
  }
- 
+
  static void dump_set_registry_notification_request( const struct set_registry_notification_request *req )
 @@ -1432,6 +1463,18 @@ static void dump_send_hardware_message_reply( const struct send_hardware_message
      fprintf( stderr, ", new_y=%d", req->new_y );
  }
- 
+
 +static void dump_track_mouse_from_pointer_request( const struct track_mouse_from_pointer_request *req )
 +{
 +    fprintf( stderr, " win=%08x", req->win );
@@ -4498,7 +4664,7 @@ index 6e38f2a837..59bdaa2e3a 100644
      fprintf( stderr, ", obj_flags=%08x", req->obj_flags );
 +    dump_timeout( ", close_timeout=", &req->close_timeout );
  }
- 
+
  static void dump_set_user_object_info_reply( const struct set_user_object_info_reply *req )
 @@ -2239,6 +2283,7 @@ static void dump_set_focus_window_reply( const struct set_focus_window_reply *re
  static void dump_set_active_window_request( const struct set_active_window_request *req )
@@ -4506,12 +4672,12 @@ index 6e38f2a837..59bdaa2e3a 100644
      fprintf( stderr, " handle=%08x", req->handle );
 +    fprintf( stderr, ", internal_msg=%08x", req->internal_msg );
  }
- 
+
  static void dump_set_active_window_reply( const struct set_active_window_reply *req )
 @@ -2821,6 +2866,18 @@ static void dump_get_directory_entries_reply( const struct get_directory_entries
      dump_varargs_directory_entries( ", entries=", cur_size );
  }
- 
+
 +static void dump_query_directory_file_request( const struct query_directory_file_request *req )
 +{
 +    fprintf( stderr, " handle=%04x", req->handle );
@@ -4533,12 +4699,12 @@ index 6e38f2a837..59bdaa2e3a 100644
      fprintf( stderr, " handle=%04x", req->handle );
 +    dump_timeout( ", desktop_close_timeout=", &req->desktop_close_timeout );
  }
- 
+
  static void dump_make_process_system_reply( const struct make_process_system_reply *req )
 @@ -3344,6 +3402,120 @@ static void dump_set_keyboard_repeat_reply( const struct set_keyboard_repeat_rep
      fprintf( stderr, " enable=%d", req->enable );
  }
- 
+
 +static void dump_create_esync_request( const struct create_esync_request *req )
 +{
 +    fprintf( stderr, " access=%08x", req->access );
@@ -4654,7 +4820,7 @@ index 6e38f2a837..59bdaa2e3a 100644
 +}
 +
  typedef void (*dump_func)( const void *req );
- 
+
  static const dump_func req_dumpers[REQ_NB_REQUESTS] =
 @@ -3438,6 +3610,7 @@ static const dump_func req_dumpers[REQ_NB_REQUESTS] =
      (dump_func)dump_open_key_request,
@@ -4696,7 +4862,7 @@ index 6e38f2a837..59bdaa2e3a 100644
 +    (dump_func)dump_get_fsync_apc_idx_request,
 +    (dump_func)dump_fsync_free_shm_idx_request,
  };
- 
+
  static const dump_func reply_dumpers[REQ_NB_REQUESTS] =
 @@ -3729,10 +3915,11 @@ static const dump_func reply_dumpers[REQ_NB_REQUESTS] =
      NULL,
@@ -4752,7 +4918,7 @@ index 6e38f2a837..59bdaa2e3a 100644
 +    (dump_func)dump_get_fsync_apc_idx_reply,
 +    NULL,
  };
- 
+
  static const char * const req_names[REQ_NB_REQUESTS] =
 @@ -4030,6 +4230,7 @@ static const char * const req_names[REQ_NB_REQUESTS] =
      "open_key",
@@ -4794,7 +4960,7 @@ index 6e38f2a837..59bdaa2e3a 100644
 +    "get_fsync_apc_idx",
 +    "fsync_free_shm_idx",
  };
- 
+
  static const struct
 @@ -4290,6 +4504,7 @@ static const struct
      { "INVALID_ACL",                 STATUS_INVALID_ACL },

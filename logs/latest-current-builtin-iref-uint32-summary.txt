@@ -1,0 +1,31 @@
+Checkpoint: 2026-05-31 00:14 UTC
+
+Runtime:
+  /home/mars-user/office-open-repro/valve-wine-ge10-install
+
+Disposable prefix:
+  /home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx
+
+Launch log:
+  /home/mars-user/office-open-repro/logs-latest-authprobe/excel-launch-builtin-productsku-iref-uint32.log
+
+Proof screenshot:
+  public/latest-current-excel-builtin-iref-uint32-privacy-blank.png
+
+Result:
+  Latest Excel no longer logs the prior IReference<UINT32> E_NOINTERFACE
+  GUID {513ef3af-e784-5325-a91e-97c2b8111cf3}.
+
+  Latest Excel no longer logs the prior e0000002 exception.
+
+  Latest Excel no longer logs repair event 702061 in this disposable run.
+
+Sway window evidence:
+  "Excel (Non-Commercial Use) (Unlicensed Product)"
+  "Microsoft respects your privacy"
+
+Interpretation:
+  Builtin SPP/ProductSku plus DispatcherQueue/weak-reference and
+  IReference<UINT32> shims get latest/current Excel past the repair crash and
+  immediate WinRT fail-fast path. The remaining blocker is rendering/content in
+  the privacy dialog body.

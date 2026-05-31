@@ -211,6 +211,65 @@ Next likely implementation path: trace or shim the `ncalrpc`
 well enough for Office's `SL*` calls, or teach builtin Wine `sppc` the
 equivalent service-backed behavior without loading native OSPPC.
 
+## Builtin SPP Current Status
+
+Checkpoint: 2026-05-31 00:14 UTC
+
+The builtin `sppc` path now reaches the same post-repair class of UI that the
+native-OSPP diagnostic reached earlier:
+
+- `OFFICE_SPP_NATIVE_POLICY_ERRORS=1` mirrors the native OSPP/SPP public-call
+  behavior seen by `tools/sppc-policy-probe.c`.
+- `SLGetProductSkuInformation(status_sku, "ApplicationBitmap")` returns the
+  native-observed `SL_DATA_SZ` value `0x000001BB` for the unlicensed SKU rows.
+- Latest Excel no longer emits Office repair event `702061` in the disposable
+  authprobe launch.
+- The visible dialog is titled `Microsoft respects your privacy`; the main
+  window behind it is `Excel (Non-Commercial Use) (Unlicensed Product)`.
+
+Current disposable launch command:
+
+```bash
+timeout 45s env \
+  OFFICE_SPP_NATIVE_POLICY_ERRORS=1 \
+  WINEDEBUG=fixme+combase,fixme+messaging,fixme+wintypes,err+module,err+seh \
+  WINEPREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx \
+  WINEARCH=win64 \
+  PATH=/home/mars-user/office-open-repro/valve-wine-ge10-install/bin:$PATH \
+  LD_LIBRARY_PATH=/home/mars-user/office-open-repro/valve-wine-ge10-install/lib \
+  XDG_RUNTIME_DIR=/run/user/1000 \
+  WAYLAND_DISPLAY=wayland-1 \
+  /home/mars-user/office-open-repro/valve-wine-ge10-install/bin/wine \
+    'C:\Program Files (x86)\Microsoft Office\root\Office16\EXCEL.EXE' \
+  > /home/mars-user/office-open-repro/logs-latest-authprobe/excel-launch-builtin-productsku-iref-uint32.log 2>&1
+```
+
+Recent UI/WinRT fixes on top of SPP:
+
+- `CoreMessagingXP.dll` and `Microsoft.Internal.FrameworkUdk.dll` are
+  materialized into disposable `syswow64` from Office's `Office16\WinAppSDK`.
+- `Windows.System.DispatcherQueue` is registered to builtin
+  `C:\windows\system32\coremessaging.dll` in both registry views.
+- Builtin `coremessaging.dll` implements a minimal
+  `Windows.System.DispatcherQueue` activation factory and queue object.
+- The queue object now supports `IWeakReferenceSource`/`IWeakReference`,
+  clearing Office's `{00000038-0000-0000-c000-000000000046}` query.
+- Builtin `wintypes!PropertyValue` now supports `IReference<UINT32>` for
+  `CreateUInt32()` results, clearing `{513ef3af-e784-5325-a91e-97c2b8111cf3}`
+  and the following `e0000002` exception.
+
+Current evidence:
+
+```text
+/home/mars-user/office-open-repro/logs-latest-authprobe/excel-launch-builtin-productsku-iref-uint32.log
+/home/mars-user/excel-on-linux/public/latest-current-excel-builtin-iref-uint32-privacy-blank.png
+/home/mars-user/excel-on-linux/logs/latest-current-builtin-iref-uint32-summary.txt
+```
+
+Remaining blocker: the privacy dialog body is still visually blank. The repair
+path and the immediate WinRT fail-fast path are cleared; next work should focus
+on the Office privacy/SDX/WebView/WinUI rendering surface.
+
 ## RPC Lifetime Trace
 
 Checkpoint: 2026-05-30 21:40 UTC
