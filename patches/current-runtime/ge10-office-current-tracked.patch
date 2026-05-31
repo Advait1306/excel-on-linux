@@ -71,10 +71,10 @@ index 46300bd9e6c..34c5716d106 100644
          {
              const WCHAR *next = wcschr( line, '\n' );
 diff --git a/dlls/appxdeploymentclient/classes.idl b/dlls/appxdeploymentclient/classes.idl
-index edef0414d2d..2e58f4c5a68 100644
+index edef0414d2d..7d5c4ff3bb4 100644
 --- a/dlls/appxdeploymentclient/classes.idl
 +++ b/dlls/appxdeploymentclient/classes.idl
-@@ -21,3 +21,27 @@
+@@ -21,3 +21,47 @@
  #pragma makedep register
  
  #include "windows.management.deployment.idl"
@@ -82,6 +82,7 @@ index edef0414d2d..2e58f4c5a68 100644
 +namespace Windows.Management.Deployment
 +{
 +    runtimeclass AddPackageOptions;
++    runtimeclass StagePackageOptions;
 +
 +    [
 +        contract(Windows.Foundation.UniversalApiContract, 7.0),
@@ -101,23 +102,45 @@ index edef0414d2d..2e58f4c5a68 100644
 +    {
 +        [default] interface Windows.Management.Deployment.IAddPackageOptions;
 +    }
++
++    [
++        contract(Windows.Foundation.UniversalApiContract, 7.0),
++        exclusiveto(Windows.Management.Deployment.StagePackageOptions),
++        uuid(0b110c9c-b95d-4c56-bd36-6d656800d06b)
++    ]
++    interface IStagePackageOptions : IInspectable
++    {
++    }
++
++    [
++        contract(Windows.Foundation.UniversalApiContract, 7.0),
++        marshaling_behavior(agile),
++        threading(both)
++    ]
++    runtimeclass StagePackageOptions
++    {
++        [default] interface Windows.Management.Deployment.IStagePackageOptions;
++    }
 +}
 diff --git a/dlls/appxdeploymentclient/main.c b/dlls/appxdeploymentclient/main.c
-index 7efbf96ea73..acdc9196a36 100644
+index 7efbf96ea73..b541bcd5aa3 100644
 --- a/dlls/appxdeploymentclient/main.c
 +++ b/dlls/appxdeploymentclient/main.c
-@@ -41,6 +41,9 @@ HRESULT WINAPI DllGetActivationFactory( HSTRING classid, IActivationFactory **fa
+@@ -41,6 +41,12 @@ HRESULT WINAPI DllGetActivationFactory( HSTRING classid, IActivationFactory **fa
      if (!wcscmp( buffer, RuntimeClass_Windows_Management_Deployment_PackageManager ))
          IActivationFactory_QueryInterface( package_manager_factory, &IID_IActivationFactory, (void **)factory );
  
 +    if (!wcscmp( buffer, L"Windows.Management.Deployment.AddPackageOptions" ))
 +        IActivationFactory_QueryInterface( add_package_options_factory, &IID_IActivationFactory, (void **)factory );
 +
++    if (!wcscmp( buffer, L"Windows.Management.Deployment.StagePackageOptions" ))
++        IActivationFactory_QueryInterface( stage_package_options_factory, &IID_IActivationFactory, (void **)factory );
++
      if (*factory) return S_OK;
      return CLASS_E_CLASSNOTAVAILABLE;
  }
 diff --git a/dlls/appxdeploymentclient/package.c b/dlls/appxdeploymentclient/package.c
-index 50dcb0f928a..145e07aad03 100644
+index 50dcb0f928a..9721cf6e42b 100644
 --- a/dlls/appxdeploymentclient/package.c
 +++ b/dlls/appxdeploymentclient/package.c
 @@ -18,6 +18,7 @@
@@ -128,7 +151,7 @@ index 50dcb0f928a..145e07aad03 100644
  #include "wine/debug.h"
  
  WINE_DEFAULT_DEBUG_CHANNEL(appx);
-@@ -26,12 +27,742 @@ struct package_manager
+@@ -26,12 +27,749 @@ struct package_manager
  {
      IPackageManager IPackageManager_iface;
      IPackageManager2 IPackageManager2_iface;
@@ -179,10 +202,14 @@ index 50dcb0f928a..145e07aad03 100644
 +static const GUID IID_IAddPackageOptions =
 +    {0x05cee018,0xf68f,0x422b,{0x95,0xa4,0x66,0x67,0x9e,0xc7,0x7f,0xc0}};
 +
++static const GUID IID_IStagePackageOptions =
++    {0x0b110c9c,0xb95d,0x4c56,{0xbd,0x36,0x6d,0x65,0x68,0x00,0xd0,0x6b}};
++
 +struct add_package_options
 +{
 +    IInspectable IInspectable_iface;
 +    LONG ref;
++    const WCHAR *class_name;
 +};
 +
 +static inline struct add_package_options *impl_from_IInspectable( IInspectable *iface )
@@ -197,7 +224,8 @@ index 50dcb0f928a..145e07aad03 100644
 +    if (IsEqualGUID( iid, &IID_IUnknown ) ||
 +        IsEqualGUID( iid, &IID_IInspectable ) ||
 +        IsEqualGUID( iid, &IID_IAgileObject ) ||
-+        IsEqualGUID( iid, &IID_IAddPackageOptions ))
++        IsEqualGUID( iid, &IID_IAddPackageOptions ) ||
++        IsEqualGUID( iid, &IID_IStagePackageOptions ))
 +    {
 +        *out = &impl->IInspectable_iface;
 +        IInspectable_AddRef( *out );
@@ -232,8 +260,10 @@ index 50dcb0f928a..145e07aad03 100644
 +
 +static HRESULT WINAPI add_package_options_GetRuntimeClassName( IInspectable *iface, HSTRING *class_name )
 +{
-+    return WindowsCreateString( L"Windows.Management.Deployment.AddPackageOptions",
-+                                ARRAY_SIZE(L"Windows.Management.Deployment.AddPackageOptions") - 1, class_name );
++    struct add_package_options *impl = impl_from_IInspectable( iface );
++    const WCHAR *name = impl->class_name ? impl->class_name : L"Windows.Management.Deployment.AddPackageOptions";
++
++    return WindowsCreateString( name, wcslen( name ), class_name );
 +}
 +
 +static HRESULT WINAPI add_package_options_GetTrustLevel( IInspectable *iface, TrustLevel *trust_level )
@@ -872,7 +902,7 @@ index 50dcb0f928a..145e07aad03 100644
  }
  
  static HRESULT WINAPI package_manager_QueryInterface( IPackageManager *iface, REFIID iid, void **out )
-@@ -57,6 +788,20 @@ static HRESULT WINAPI package_manager_QueryInterface( IPackageManager *iface, RE
+@@ -57,6 +795,20 @@ static HRESULT WINAPI package_manager_QueryInterface( IPackageManager *iface, RE
          return S_OK;
      }
  
@@ -893,7 +923,7 @@ index 50dcb0f928a..145e07aad03 100644
      FIXME( "%s not implemented, returning E_NOINTERFACE.\n", debugstr_guid( iid ) );
      *out = NULL;
      return E_NOINTERFACE;
-@@ -136,14 +881,14 @@ static HRESULT WINAPI package_manager_RegisterPackageAsync( IPackageManager *ifa
+@@ -136,14 +888,14 @@ static HRESULT WINAPI package_manager_RegisterPackageAsync( IPackageManager *ifa
  
  static HRESULT WINAPI package_manager_FindPackages( IPackageManager *iface, IIterable_Package **packages )
  {
@@ -912,7 +942,7 @@ index 50dcb0f928a..145e07aad03 100644
  }
  
  static HRESULT WINAPI package_manager_FindPackagesByNamePublisher( IPackageManager *iface, HSTRING name, HSTRING publisher, IIterable_Package **packages )
-@@ -151,14 +896,14 @@ static HRESULT WINAPI package_manager_FindPackagesByNamePublisher( IPackageManag
+@@ -151,14 +903,14 @@ static HRESULT WINAPI package_manager_FindPackagesByNamePublisher( IPackageManag
      FIXME( "iface %p, name %s, publisher %s, packages %p stub!\n", iface, debugstr_hstring(name), debugstr_hstring(publisher), packages );
  
      if (!name || !publisher) return E_INVALIDARG;
@@ -930,7 +960,7 @@ index 50dcb0f928a..145e07aad03 100644
  }
  
  static HRESULT WINAPI package_manager_FindUsers( IPackageManager *iface, HSTRING name, IIterable_PackageUserInformation **users )
-@@ -189,15 +934,15 @@ static HRESULT WINAPI package_manager_CleanupPackageForUserAsync( IPackageManage
+@@ -189,15 +941,15 @@ static HRESULT WINAPI package_manager_CleanupPackageForUserAsync( IPackageManage
  static HRESULT WINAPI package_manager_FindPackagesByPackageFamilyName( IPackageManager *iface, HSTRING family_name,
      IIterable_Package **packages )
  {
@@ -950,7 +980,7 @@ index 50dcb0f928a..145e07aad03 100644
  }
  
  static HRESULT WINAPI package_manager_FindPackageByUserSecurityIdPackageFullName( IPackageManager *iface, HSTRING sid, HSTRING name, IPackage **package )
-@@ -259,43 +1004,43 @@ static HRESULT WINAPI package_manager2_RegisterPackageByFullNameAsync( IPackageM
+@@ -259,43 +1011,43 @@ static HRESULT WINAPI package_manager2_RegisterPackageByFullNameAsync( IPackageM
  
  static HRESULT WINAPI package_manager2_FindPackagesWithPackageTypes( IPackageManager2 *iface, PackageTypes types, IIterable_Package **packages )
  {
@@ -1006,7 +1036,7 @@ index 50dcb0f928a..145e07aad03 100644
  }
  
  static HRESULT WINAPI package_manager2_StageUserDataAsync( IPackageManager2 *iface, HSTRING name,
-@@ -327,6 +1072,240 @@ static const struct IPackageManager2Vtbl package_manager2_vtbl =
+@@ -327,6 +1079,240 @@ static const struct IPackageManager2Vtbl package_manager2_vtbl =
      package_manager2_StageUserDataAsync,
  };
  
@@ -1247,7 +1277,7 @@ index 50dcb0f928a..145e07aad03 100644
  struct package_manager_statics
  {
      IActivationFactory IActivationFactory_iface;
-@@ -346,6 +1325,7 @@ static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID
+@@ -346,6 +1332,7 @@ static HRESULT WINAPI factory_QueryInterface( IActivationFactory *iface, REFIID
  
      if (IsEqualGUID( iid, &IID_IUnknown ) ||
          IsEqualGUID( iid, &IID_IInspectable ) ||
@@ -1255,7 +1285,7 @@ index 50dcb0f928a..145e07aad03 100644
          IsEqualGUID( iid, &IID_IActivationFactory ))
      {
          *out = &impl->IActivationFactory_iface;
-@@ -406,6 +1386,8 @@ static HRESULT WINAPI factory_ActivateInstance( IActivationFactory *iface, IInsp
+@@ -406,6 +1393,8 @@ static HRESULT WINAPI factory_ActivateInstance( IActivationFactory *iface, IInsp
  
      impl->IPackageManager_iface.lpVtbl = &package_manager_vtbl;
      impl->IPackageManager2_iface.lpVtbl = &package_manager2_vtbl;
@@ -1264,7 +1294,7 @@ index 50dcb0f928a..145e07aad03 100644
      impl->ref = 1;
  
      *instance = (IInspectable *)&impl->IPackageManager_iface;
-@@ -432,3 +1414,102 @@ static struct package_manager_statics package_manager_statics =
+@@ -432,3 +1421,115 @@ static struct package_manager_statics package_manager_statics =
  };
  
  IActivationFactory *package_manager_factory = &package_manager_statics.IActivationFactory_iface;
@@ -1273,6 +1303,7 @@ index 50dcb0f928a..145e07aad03 100644
 +{
 +    IActivationFactory IActivationFactory_iface;
 +    LONG ref;
++    const WCHAR *class_name;
 +};
 +
 +static inline struct add_package_options_statics *impl_from_add_package_options_factory( IActivationFactory *iface )
@@ -1318,8 +1349,8 @@ index 50dcb0f928a..145e07aad03 100644
 +
 +static HRESULT WINAPI add_package_options_factory_GetRuntimeClassName( IActivationFactory *iface, HSTRING *class_name )
 +{
-+    return WindowsCreateString( L"Windows.Management.Deployment.AddPackageOptions",
-+                                ARRAY_SIZE(L"Windows.Management.Deployment.AddPackageOptions") - 1, class_name );
++    struct add_package_options_statics *impl = impl_from_add_package_options_factory( iface );
++    return WindowsCreateString( impl->class_name, wcslen( impl->class_name ), class_name );
 +}
 +
 +static HRESULT WINAPI add_package_options_factory_GetTrustLevel( IActivationFactory *iface, TrustLevel *trust_level )
@@ -1331,6 +1362,7 @@ index 50dcb0f928a..145e07aad03 100644
 +
 +static HRESULT WINAPI add_package_options_factory_ActivateInstance( IActivationFactory *iface, IInspectable **instance )
 +{
++    struct add_package_options_statics *statics = impl_from_add_package_options_factory( iface );
 +    struct add_package_options *impl;
 +
 +    TRACE( "iface %p, instance %p.\n", iface, instance );
@@ -1344,6 +1376,7 @@ index 50dcb0f928a..145e07aad03 100644
 +
 +    impl->IInspectable_iface.lpVtbl = (const IInspectableVtbl *)&add_package_options_vtbl;
 +    impl->ref = 1;
++    impl->class_name = statics->class_name;
 +
 +    *instance = &impl->IInspectable_iface;
 +    return S_OK;
@@ -1364,18 +1397,29 @@ index 50dcb0f928a..145e07aad03 100644
 +{
 +    {&add_package_options_factory_vtbl},
 +    1,
++    L"Windows.Management.Deployment.AddPackageOptions",
 +};
 +
 +IActivationFactory *add_package_options_factory = &add_package_options_statics.IActivationFactory_iface;
++
++static struct add_package_options_statics stage_package_options_statics =
++{
++    {&add_package_options_factory_vtbl},
++    1,
++    L"Windows.Management.Deployment.StagePackageOptions",
++};
++
++IActivationFactory *stage_package_options_factory = &stage_package_options_statics.IActivationFactory_iface;
 diff --git a/dlls/appxdeploymentclient/private.h b/dlls/appxdeploymentclient/private.h
-index cc35ab9d7ec..78b439f2e1d 100644
+index cc35ab9d7ec..c302e0411a3 100644
 --- a/dlls/appxdeploymentclient/private.h
 +++ b/dlls/appxdeploymentclient/private.h
-@@ -37,6 +37,7 @@
+@@ -37,6 +37,8 @@
  #include "windows.management.deployment.h"
  
  extern IActivationFactory *package_manager_factory;
 +extern IActivationFactory *add_package_options_factory;
++extern IActivationFactory *stage_package_options_factory;
  
  #define DEFINE_IINSPECTABLE_( pfx, iface_type, impl_type, impl_from, iface_mem, expr )             \
      static inline impl_type *impl_from( iface_type *iface )                                        \

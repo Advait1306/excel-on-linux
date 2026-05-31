@@ -1,6 +1,6 @@
 # Current GE10 Office patch stack
 
-Date: 2026-05-31 08:22 UTC
+Date: 2026-05-31 09:58 UTC
 
 This documents the patched GE-Proton10-34 Wine source/runtime state that
 reproduces latest/current Excel reaching the visible sign-in/product-key step.
@@ -17,6 +17,8 @@ It is not the older known-good Office `16.0.12527.21416` prefix.
 
 - Tracked source changes:
   `patches/current-runtime/ge10-office-current-tracked.patch`
+- Focused latest-ODT reintegration patch:
+  `patches/current-runtime/ge10-office-appxdeploymentclient-stagepackageoptions.patch`
 - New Office shim source files:
   `patches/current-runtime/ge10-office-current-new-source-files.patch`
 - Full untracked-file inventory:
@@ -59,6 +61,12 @@ The current reproducible latest path is documented in:
 It reaches the current Excel Home screen and the `Sign in to set up Office`
 dialog under our patched runtime. This is a human decision boundary: continuing
 requires Microsoft account/product-key interaction.
+
+The 2026-05-31 09:58 UTC snapshot also includes the current-ODT reintegration
+fix for `Windows.Management.Deployment.StagePackageOptions` in
+`appxdeploymentclient.dll`. Prefixes need both native and WOW64 WinRT
+registration for that class; use `scripts/office-latest-experiment.sh
+prepare-current-launch` after rebuilding/copying the runtime DLL.
 
 ## Applying the source snapshot
 

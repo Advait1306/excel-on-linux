@@ -1,0 +1,2 @@
+8b5f01f9b2eb4dfc61a8fd178fa8963b4f14079b84470b187b529886d038c948  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/i386-windows/appxdeploymentclient.dll
+9ffb8a1401feeb8407c64eb5cc53ad0de77c74587f058aa2162d25f621d08058  /home/mars-user/office-open-repro/valve-wine-ge10-install/lib/wine/x86_64-windows/appxdeploymentclient.dll

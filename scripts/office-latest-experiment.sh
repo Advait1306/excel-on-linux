@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 RUNTIME_ROOT="${RUNTIME_ROOT:-/home/mars-user/office-open-repro/valve-wine-ge10-install}"
 WINEBIN="${WINEBIN:-$RUNTIME_ROOT/bin/wine}"
+WINE64BIN="${WINE64BIN:-$RUNTIME_ROOT/bin/wine64}"
 WINESERVER="${WINESERVER:-$RUNTIME_ROOT/bin/wineserver}"
 PREFIX="${PREFIX:-/home/mars-user/.local/share/office-proton/compatdata/latest-officesetup-win10/pfx}"
 WINDOWS_VERSION="${WINDOWS_VERSION:-win10}"
@@ -18,6 +19,9 @@ VIRTUAL_DESKTOP="${VIRTUAL_DESKTOP:-office-latest,1200x900}"
 OFFICE16_UNIX="${OFFICE16_UNIX:-$PREFIX/drive_c/Program Files (x86)/Microsoft Office/root/Office16}"
 COREMESSAGING_ALIAS="${COREMESSAGING_ALIAS:-$PREFIX/drive_c/windows/syswow64/CoreMessagingXP.dll}"
 FRAMEWORKUDK_TARGET="${FRAMEWORKUDK_TARGET:-$PREFIX/drive_c/windows/syswow64/Microsoft.Internal.FrameworkUdk.dll}"
+WINMD_NUGET_URL="${WINMD_NUGET_URL:-https://www.nuget.org/api/v2/package/DirectWindowsWinmd.Net/10.0.15063}"
+WINMD_CACHE="${WINMD_CACHE:-/home/mars-user/office-open-repro/deps/nuget/directwindowswinmd.net.nupkg}"
+WINMD_EXTRACT_DIR="${WINMD_EXTRACT_DIR:-/home/mars-user/office-open-repro/deps/nuget/directwindowswinmd.net}"
 
 wine_env() {
   unset CX_ROOT CX_BOTTLE CX_BOTTLE_PATH CX_MANAGED_BOTTLE_PATH WINEDLLPATH
@@ -32,6 +36,11 @@ wine_env() {
 run_wine() {
   wine_env
   WINEPREFIX="$PREFIX" "$WINEBIN" "$@"
+}
+
+run_wine64() {
+  wine_env
+  WINEPREFIX="$PREFIX" "$WINE64BIN" "$@"
 }
 
 run_wineserver() {
@@ -59,6 +68,7 @@ Usage:
   office-latest-experiment.sh run-officesetup
   office-latest-experiment.sh run-latest-odt
   office-latest-experiment.sh prepare-current-launch
+  office-latest-experiment.sh materialize-windows-winmd
   office-latest-experiment.sh current-launch-status
   office-latest-experiment.sh clear-excel-resiliency
   office-latest-experiment.sh launch-excel
@@ -82,6 +92,7 @@ EOF
     echo "OFFICE_XML=$OFFICE_XML"
     echo "OVERRIDES_REG=$OVERRIDES_REG"
     echo "LOG_DIR=$LOG_DIR"
+    echo "WINMD_CACHE=$WINMD_CACHE"
     "$WINEBIN" --version
     ;;
   init-prefix)
@@ -142,7 +153,29 @@ EOF
     run_wine reg add 'HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.DispatcherQueue' /v DllPath /t REG_SZ /d 'C:\windows\system32\coremessaging.dll' /f
     run_wine reg add 'HKLM\Software\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.Profile.SharedModeSettings' /v DllPath /t REG_SZ /d 'C:\windows\system32\windows.system.profile.systemmanufacturers.dll' /f
     run_wine reg add 'HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.Profile.SharedModeSettings' /v DllPath /t REG_SZ /d 'C:\windows\system32\windows.system.profile.systemmanufacturers.dll' /f
+    run_wine64 reg add 'HKLM\Software\Microsoft\WindowsRuntime\ActivatableClassId\Windows.Management.Deployment.StagePackageOptions' /v DllPath /t REG_SZ /d 'C:\windows\system32\appxdeploymentclient.dll' /f /reg:64
+    run_wine reg add 'HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.Management.Deployment.StagePackageOptions' /v DllPath /t REG_SZ /d 'C:\windows\system32\appxdeploymentclient.dll' /f
     run_wineserver -w || true
+    ;;
+  materialize-windows-winmd)
+    echo "Materializing Windows.winmd/Windows.dll for InspectorOfficeGadget probing"
+    mkdir -p "$(dirname "$WINMD_CACHE")" "$WINMD_EXTRACT_DIR"
+    if [[ ! -f "$WINMD_CACHE" ]]; then
+      curl -L -o "$WINMD_CACHE" "$WINMD_NUGET_URL"
+    fi
+    unzip -o "$WINMD_CACHE" lib/net45/Windows.winmd -d "$WINMD_EXTRACT_DIR"
+    winmd="$WINMD_EXTRACT_DIR/lib/net45/Windows.winmd"
+    install -d \
+      "$PREFIX/drive_c/windows/system32/WinMetadata" \
+      "$PREFIX/drive_c/windows/syswow64/WinMetadata" \
+      "$PREFIX/drive_c/Program Files/Common Files/Microsoft Shared/ClickToRun"
+    install -m 644 "$winmd" "$PREFIX/drive_c/windows/system32/WinMetadata/Windows.winmd"
+    install -m 644 "$winmd" "$PREFIX/drive_c/windows/syswow64/WinMetadata/Windows.winmd"
+    install -m 644 "$winmd" "$PREFIX/drive_c/Program Files/Common Files/Microsoft Shared/ClickToRun/Windows.winmd"
+    install -m 644 "$winmd" "$PREFIX/drive_c/windows/system32/Windows.dll"
+    install -m 644 "$winmd" "$PREFIX/drive_c/windows/syswow64/Windows.dll"
+    install -m 644 "$winmd" "$PREFIX/drive_c/Program Files/Common Files/Microsoft Shared/ClickToRun/Windows.dll"
+    sha256sum "$winmd"
     ;;
   current-launch-status)
     echo "Prefix: $PREFIX"
@@ -164,6 +197,8 @@ EOF
     run_wine reg query 'HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.DispatcherQueue' /v DllPath || true
     run_wine reg query 'HKLM\Software\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.Profile.SharedModeSettings' /v DllPath || true
     run_wine reg query 'HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.System.Profile.SharedModeSettings' /v DllPath || true
+    run_wine64 reg query 'HKLM\Software\Microsoft\WindowsRuntime\ActivatableClassId\Windows.Management.Deployment.StagePackageOptions' /v DllPath /reg:64 || true
+    run_wine reg query 'HKLM\Software\Wow6432Node\Microsoft\WindowsRuntime\ActivatableClassId\Windows.Management.Deployment.StagePackageOptions' /v DllPath || true
     ;;
   launch-excel)
     run_wine "$EXCEL_EXE"

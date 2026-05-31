@@ -264,3 +264,89 @@ Detailed notes:
 ```text
 docs/latest-ospp-spp-findings.md
 ```
+
+### Current ODT reintegration after visible-sign-in runtime fixes
+
+Disposable reintegration clone:
+
+```text
+/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-reintegrate-test/pfx
+```
+
+Baseline cloned from:
+
+```text
+/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-authprobe/pfx
+```
+
+This lane preserves the known-good old Office prefix and the latest visible
+sign-in baseline. It reruns the current ODT over a clone to find installer-path
+issues that remain after Excel itself can launch.
+
+Commands:
+
+```bash
+PREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-reintegrate-test/pfx \
+LOG_DIR=/home/mars-user/office-open-repro/logs-latest-reintegrate-test \
+scripts/office-latest-experiment.sh prepare-current-launch
+
+PREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-reintegrate-test/pfx \
+LOG_DIR=/home/mars-user/office-open-repro/logs-latest-reintegrate-test \
+scripts/office-latest-experiment.sh materialize-windows-winmd
+
+timeout 900s env \
+  PREFIX=/home/mars-user/.local/share/office-proton/compatdata/latest-odt-current32-win10-reintegrate-test/pfx \
+  LOG_DIR=/home/mars-user/office-open-repro/logs-latest-reintegrate-test \
+  scripts/office-latest-experiment.sh run-latest-odt
+```
+
+New findings on 2026-05-31:
+
+- The old `integrator.exe` `0xc0000005` crash was not seen in the sampled
+  reintegration passes.
+- `Windows.Management.Deployment.StagePackageOptions` was missing from Wine's
+  `appxdeploymentclient` WinRT activation surface. A new patched runtime build
+  now exposes the class and `IStagePackageOptions`
+  `{0b110c9c-b95d-4c56-bd36-6d656800d06b}`.
+- The class must be registered in both registry views. The native view requires
+  `wine64 reg ... /reg:64`; otherwise the value lands only under `Wow6432Node`.
+- After patching and native+WOW64 registration, the ODT log contains
+  `RoGetActivationFactory(Windows.Management.Deployment.StagePackageOptions)`
+  without the former paired `Failed to find library`.
+- `InspectorOfficeGadget.exe` repeatedly crashes under Wine Mono with:
+
+```text
+System.IO.FileNotFoundException: Could not load file or assembly
+'Windows, Version=255.255.255.255, Culture=neutral, PublicKeyToken=null'
+```
+
+Experimental WinMD materialization:
+
+- Downloaded NuGet package:
+  `DirectWindowsWinmd.Net/10.0.15063`.
+- Extracted payload:
+  `lib/net45/Windows.winmd`
+  - SHA256:
+    `882ec737a0cc858ae594ba8cb8c4f0b3de06d61cf290da47270eeb0a551dc1a3`
+- Placed as both `Windows.winmd` and `Windows.dll` in:
+  `C:\windows\system32\WinMetadata`,
+  `C:\windows\syswow64\WinMetadata`,
+  `C:\windows\system32`,
+  `C:\windows\syswow64`, and
+  `C:\Program Files\Common Files\Microsoft Shared\ClickToRun`.
+
+Result:
+
+- Placing only `.winmd` did not satisfy the assembly load.
+- Copying the same payload as `Windows.dll` during a running ODT pass stopped
+  later `InspectorOfficeGadget` `FileNotFoundException` repeats and allowed
+  setup to proceed into long VSTO/ngen work.
+- That run hit the 900s test timeout and was stopped, so the next proof step is
+  a clean rerun with `Windows.dll` already present before ODT starts.
+
+Evidence:
+
+```text
+logs/latest-current-reintegrate-test/
+patches/current-runtime/ge10-office-current-tracked.patch
+```
